@@ -1,0 +1,42 @@
+# manifests/grill/yourself.yaml
+#
+# Native skill — implemented in src/agent_power_pack/grill/yourself.py.
+
+name: yourself
+family: grill
+description: >-
+  Pre-flight self-interrogation — generate and answer questions about pending changes before finishing a flow.
+triggers:
+  - /grill:yourself
+  - grill yourself
+  - self-interrogate
+  - pre-flight check
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 20
+prompt: |
+  # grill:yourself — Pre-flight Self-Interrogation
+
+  You are running a pre-flight self-interrogation on the current changes.
+
+  ## Behavior
+
+  1. Collect the pending diff via `git diff --numstat` against the merge base.
+  2. Run `agent-power-pack grill yourself` which will:
+     - Generate ≥5 probing questions about the changes
+     - Answer each question honestly
+     - Save the transcript to `.specify/grills/<timestamp>.md`
+  3. Report the transcript summary to the user.
+
+  ## When to trigger automatically
+
+  This skill fires automatically during `/flow:finish` when the pending diff exceeds thresholds (default: >200 lines OR >5 files changed). It can be suppressed with a `grill-yourself: skip` trailer on the HEAD commit.
+
+  ## Manual invocation
+
+  Run `/grill:yourself` or `/grill:yourself <plan-description>` to interrogate a specific plan.

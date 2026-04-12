@@ -7,7 +7,7 @@ source, pinned commit, and license.
 
 | Skill | Source | Commit SHA | License |
 |-------|--------|------------|---------|
-| grill-me | [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/grill-me) | *not yet vendored* | MIT |
+| grill-me | [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/grill-me) | 651eab033bdf8f7fd535c274f8cbe839075aba5e | MIT |
 
 ---
 
