@@ -1,0 +1,57 @@
+name: woodpecker-checklist
+family: cicd
+description: >-
+  Validate a .woodpecker.yml against learned findings from woodpecker-baseline.
+  Runs as an interactive walkthrough or a non-interactive validator gate.
+triggers:
+  - /cicd:woodpecker-checklist
+  - cicd woodpecker checklist
+  - validate woodpecker pipeline
+  - check woodpecker config
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 10
+prompt: |
+  # /cicd:woodpecker-checklist — Woodpecker Pipeline Validator
+
+  Validate a `.woodpecker.yml` file against the learned-findings checklist
+  derived from [cooneycw/woodpecker-baseline](https://github.com/cooneycw/woodpecker-baseline).
+
+  ## Rules checked
+
+  1. **pinned_images** — No `:latest` tags; every image must use a pinned version.
+  2. **safe_directory** — `git config --global safe.directory` set for root-in-container ops.
+  3. **no_unjustified_failure_ignore** — Every `failure: ignore` must have a `failure_justification`.
+  4. **stale_commit_guard** — Deploy steps must fetch and compare before deploying.
+  5. **concurrent_deploy_lock** — Deploy pipelines must declare a concurrency limit.
+  6. **two_phase_readiness** — Deploys need a health check + wait buffer for proxy propagation.
+  7. **secrets_readable_first_step** — Validate secrets are readable in the first step.
+  8. **explicit_when_depends_on** — Use explicit `when` filters and `depends_on`, not YAML ordering.
+  9. **required_agent_labels** — Deploy pipelines must specify agent labels.
+  10. **pre_merge_non_prod_test** — A test/staging deploy must precede production deploy.
+
+  ## Usage
+
+  **Interactive mode** (default): Walk through each rule interactively.
+  ```
+  agent-power-pack cicd woodpecker-checklist .woodpecker.yml
+  ```
+
+  **Validator mode** (for CI gates): Non-interactive, exits non-zero on failure.
+  ```
+  agent-power-pack cicd woodpecker-checklist .woodpecker.yml --validate --json
+  ```
+
+  ## Non-waivable rules
+
+  The following rules CANNOT be waived — failure is always blocking:
+  - `pinned_images`
+  - `safe_directory`
+  - `no_unjustified_failure_ignore`
+
+  All other rules may be waived with a documented justification during interactive mode.

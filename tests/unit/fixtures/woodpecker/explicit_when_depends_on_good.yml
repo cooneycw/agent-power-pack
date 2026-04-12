@@ -1,0 +1,21 @@
+build:
+  steps:
+    - name: test
+      image: python:3.11.9-slim
+      commands:
+        - pytest
+    - name: lint
+      image: python:3.11.9-slim
+      depends_on:
+        - test
+      commands:
+        - ruff check .
+    - name: deploy
+      image: alpine:3.19
+      when:
+        branch: main
+      depends_on:
+        - test
+        - lint
+      commands:
+        - ./deploy.sh

@@ -1,0 +1,8 @@
+deploy:
+  steps:
+    - name: deploy-app
+      image: alpine:3.19
+      commands:
+        - ./deploy.sh production
+        - sleep 10
+        - curl -sf http://localhost:8080/healthz || exit 1

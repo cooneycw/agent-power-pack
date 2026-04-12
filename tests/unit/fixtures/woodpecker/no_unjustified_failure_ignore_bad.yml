@@ -1,0 +1,11 @@
+build:
+  steps:
+    - name: test
+      image: python:3.11.9-slim
+      commands:
+        - pytest
+    - name: deploy
+      image: alpine:3.19
+      failure: ignore
+      commands:
+        - ./deploy.sh

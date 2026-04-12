@@ -327,6 +327,97 @@ def grill(
         typer.echo(f"grill: mode={mode} [stub -- see Phase 7 for grill:me]")
 
 
+@app.command()
+def cicd(
+    step: str = typer.Argument(
+        ..., help="CICD step: init, woodpecker-checklist."
+    ),
+    pipeline_file: str = typer.Option(
+        ".woodpecker.yml", "--file", "-f", help="Path to .woodpecker.yml."
+    ),
+    validate: bool = typer.Option(
+        False, "--validate", help="Run in non-interactive validator mode."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON output."),
+    waive: list[str] = typer.Option(
+        [], "--waive", "-w", help="Rule IDs to waive (repeatable)."
+    ),
+) -> None:
+    """Run CI/CD tools (woodpecker-checklist, init)."""
+    import json
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.table import Table
+
+    from agent_power_pack.cicd.woodpecker_checklist import (
+        NON_WAIVABLE_RULES,
+        load_pipeline,
+        run_validator,
+        validate_pipeline_file,
+    )
+
+    console = Console()
+
+    if step == "woodpecker-checklist":
+        path = Path(pipeline_file)
+        if not path.exists():
+            console.print(f"[red]Pipeline file not found: {path}[/red]")
+            raise typer.Exit(code=1)
+
+        waived = set(waive) if waive else None
+        result = validate_pipeline_file(path, waived_rules=waived)
+
+        if json_output:
+            console.print(json.dumps(result.model_dump(), indent=2))
+        else:
+            table = Table(title="Woodpecker Checklist Results")
+            table.add_column("Rule", style="bold")
+            table.add_column("Status")
+            table.add_column("Evidence")
+            for r in result.rules:
+                style = {"pass": "green", "fail": "red", "waived": "yellow"}[r.status]
+                table.add_row(r.rule_id, f"[{style}]{r.status}[/{style}]", r.evidence or "")
+            console.print(table)
+            console.print(f"\nOverall: [{'red' if result.status == 'fail' else 'green'}]{result.status}[/]")
+
+        if result.status == "fail":
+            raise typer.Exit(code=1)
+
+    elif step == "init":
+        # FR-018: cicd:init invokes woodpecker-checklist in validator mode
+        path = Path(pipeline_file)
+        if not path.exists():
+            console.print(f"[yellow]No pipeline file at {path} — generate one first.[/yellow]")
+            raise typer.Exit(code=1)
+
+        result = validate_pipeline_file(path)
+        non_waivable_failures = [
+            r for r in result.failed_rules if r.rule_id in NON_WAIVABLE_RULES
+        ]
+
+        if non_waivable_failures:
+            console.print("[red]cicd:init BLOCKED — non-waivable checklist failures:[/red]")
+            for r in non_waivable_failures:
+                console.print(f"  [red]{r.rule_id}[/red]: {r.evidence}")
+            console.print(
+                "\n[yellow]Fix the above issues before finalizing CI/CD setup.[/yellow]"
+            )
+            raise typer.Exit(code=1)
+
+        if result.status == "fail":
+            console.print("[yellow]cicd:init WARNING — waivable checklist failures:[/yellow]")
+            for r in result.failed_rules:
+                console.print(f"  [yellow]{r.rule_id}[/yellow]: {r.evidence}")
+            console.print("\nThese can be waived. Pipeline file accepted with warnings.")
+        else:
+            console.print("[green]cicd:init — all checklist items pass. Pipeline accepted.[/green]")
+
+    else:
+        console.print(f"[red]Unknown cicd step '{step}'. Valid: init, woodpecker-checklist[/red]")
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     """Entry point for the agent-power-pack CLI."""
     app()

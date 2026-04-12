@@ -1,0 +1,8 @@
+build:
+  steps:
+    - name: setup
+      image: python:3.11.9-slim
+      commands:
+        - git config --global safe.directory "*"
+        - git fetch origin main
+        - git diff --stat origin/main...HEAD

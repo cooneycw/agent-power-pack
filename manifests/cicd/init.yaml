@@ -1,0 +1,37 @@
+name: init
+family: cicd
+description: >-
+  Initialize CI/CD configuration for a project, generating a .woodpecker.yml
+  and validating it against the woodpecker-checklist before finalizing.
+triggers:
+  - /cicd:init
+  - cicd init
+  - initialize ci/cd
+  - setup woodpecker
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 5
+prompt: |
+  # /cicd:init — CI/CD Initialization
+
+  Bootstrap a Woodpecker CI/CD pipeline for the current project.
+
+  ## Steps
+
+  1. Detect the project type (Python, Go, Node, etc.) from repo contents.
+  2. Generate a `.woodpecker.yml` with lint, test, verify, and deploy stages.
+  3. Run `cicd:woodpecker-checklist` in **validator mode** against the generated file.
+  4. If any non-waivable checklist item fails, report the failures and refuse to finalize.
+  5. If all non-waivable items pass, write the `.woodpecker.yml` to the repo root.
+
+  ## Important
+
+  The generated pipeline MUST pass the woodpecker-checklist validator before it can be
+  written to disk. This ensures every new pipeline starts with the learned findings from
+  woodpecker-baseline baked in. Use `agent-power-pack cicd woodpecker-checklist` to
+  review failures interactively.
