@@ -1,0 +1,239 @@
+# manifests/flow/deploy.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/deploy.md.
+# Substitutions per agent-power-pack Constitution:
+#   - `lib/cicd` / `lib/security` shell-outs replaced with native
+#     `agent-power-pack` CLI.
+#   - `.claude/deploy.yaml` → `.specify/deploy.yaml` and
+#     `.claude/deploy.log` → `.agent-power-pack/deploy.log`.
+#   - Added Woodpecker checklist validator gate before deploy (FR-018):
+#     `.woodpecker.yml` must pass `cicd:woodpecker-checklist` in
+#     validator mode OR have a waiver recorded in .specify/waivers.yaml.
+#   - Optional grill-yourself gate on deploy script changes.
+
+name: deploy
+family: flow
+description: >-
+  Run deployment via a Makefile target (default `deploy`). Includes a
+  pre-deploy security scan, Woodpecker checklist validator gate, and
+  optional post-deploy health + smoke tests. Logged to
+  .agent-power-pack/deploy.log.
+triggers:
+  - /flow:deploy
+  - flow deploy
+  - deploy
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: health_check
+attribution: null
+order: 70
+prompt: |
+  # /flow:deploy — Deploy via Makefile
+
+  Run a deploy target (default `deploy`) through the same quality
+  gates + optional post-deploy verification flow used by the source
+  power-packs, adapted for agent-power-pack's native tooling.
+
+  ## Arguments
+
+  - `TARGET` (optional): Makefile target to run. Default: `deploy`.
+
+  ## Step 1: Verify branch
+
+  ```bash
+  BRANCH=$(git branch --show-current)
+  if [[ "$BRANCH" != "main" && "$BRANCH" != "master" ]]; then
+      echo "WARNING: deploying from '$BRANCH' (not main)."
+      echo "Consider merging first with /flow:merge."
+      # Ask user to confirm or abort.
+  fi
+  ```
+
+  ## Step 2: Check Makefile exists
+
+  ```bash
+  if [[ ! -f "Makefile" ]]; then
+      echo "ERROR: no Makefile in $(pwd)."
+      echo "Create one with a 'deploy' target, or run your deploy command directly."
+      exit 1
+  fi
+  ```
+
+  ## Step 3: Verify target exists
+
+  ```bash
+  TARGET="${1:-deploy}"
+  if ! grep -q "^${TARGET}:" Makefile; then
+      echo "ERROR: no '${TARGET}' target in Makefile."
+      echo
+      echo "Available targets:"
+      grep -E "^[a-zA-Z_-]+:" Makefile | sed 's/:.*//' | sort
+      exit 1
+  fi
+  ```
+
+  ## Step 4: Check deploy metadata (optional)
+
+  If `.specify/deploy.yaml` exists, read it for confirmation rules:
+
+  ```yaml
+  # .specify/deploy.yaml (optional)
+  targets:
+    deploy:
+      description: Deploy to production
+      requires_confirmation: true
+    deploy-staging:
+      description: Deploy to staging
+  ```
+
+  If `requires_confirmation: true`, ask the user to confirm before
+  proceeding.
+
+  ## Step 5: Woodpecker checklist gate (FR-018)
+
+  If `.woodpecker.yml` exists AND the `agent-power-pack` CLI is
+  available, run the Woodpecker checklist validator:
+
+  ```bash
+  if [[ -f ".woodpecker.yml" ]] && command -v agent-power-pack >/dev/null 2>&1; then
+      agent-power-pack cicd woodpecker-checklist --validator .woodpecker.yml
+      CHECK_EXIT=$?
+      if [[ $CHECK_EXIT -ne 0 ]]; then
+          echo "ERROR: .woodpecker.yml failed the checklist validator."
+          echo "Fix the reported rule failures OR add a waiver in .specify/waivers.yaml."
+          exit 1
+      fi
+  fi
+  ```
+
+  Non-waivable failures STOP the deploy.
+
+  ## Step 6: Security gate
+
+  ```bash
+  if command -v agent-power-pack >/dev/null 2>&1; then
+      agent-power-pack security gate flow_deploy
+      SEC_EXIT=$?
+      case "$SEC_EXIT" in
+          0) ;;                      # clean
+          2) echo "HIGH findings — proceeding with warning" ;;
+          *) echo "CRITICAL findings — aborting deploy"; exit 1 ;;
+      esac
+  fi
+  ```
+
+  Defaults are the same as `/flow:finish`: CRITICAL blocks, HIGH warns,
+  MEDIUM/LOW pass silently. Configurable in `.specify/security.yaml`.
+
+  ## Step 7: Grill-yourself (optional)
+
+  If the diff since last deploy touches `Makefile` (`deploy` target),
+  `compose.yaml`, `mcp_container/`, or any `scripts/deploy*`, fire
+  `grill-yourself` on the deploy plan. Preferred mode:
+  `second-opinion.grill_plan`. Fallback: local skill.
+
+  Verdict `no` → STOP before running `make`. Verdict `yes-with-caveats`
+  → proceed but print the caveats in the deploy report.
+
+  ## Step 8: Run deploy
+
+  ```bash
+  echo "Running: make $TARGET"
+  make "$TARGET"
+  DEPLOY_EXIT=$?
+  ```
+
+  ## Step 9: Log the deployment
+
+  ```bash
+  mkdir -p .agent-power-pack
+  echo "$(date -Iseconds) | ${TARGET} | $(git rev-parse --short HEAD) | $(git branch --show-current) | ${DEPLOY_EXIT}" \
+      >> .agent-power-pack/deploy.log
+  ```
+
+  Format: `timestamp | target | commit | branch | exit_code`.
+
+  ## Step 10: Post-deploy verification (optional)
+
+  Only if `.specify/cicd.yaml` has `health.post_deploy: true` and the
+  `agent-power-pack` CLI is available.
+
+  1. **Health checks**:
+
+     ```bash
+     agent-power-pack cicd health --summary
+     HEALTH_EXIT=$?
+     ```
+
+  2. **Smoke tests**:
+
+     ```bash
+     agent-power-pack cicd smoke --summary
+     SMOKE_EXIT=$?
+     ```
+
+  3. **Woodpecker pipeline health** (if configured):
+     - Call `woodpecker.health_check` via the MCP server.
+
+  4. **Extend the deploy log**:
+
+     ```bash
+     HEALTH_PASS=$( [ "$HEALTH_EXIT" -eq 0 ] && echo "pass" || echo "fail" )
+     SMOKE_PASS=$( [ "$SMOKE_EXIT" -eq 0 ] && echo "pass" || echo "fail" )
+     echo "$(date -Iseconds) | ${TARGET} | $(git rev-parse --short HEAD) | $(git branch --show-current) | ${DEPLOY_EXIT} | health:${HEALTH_PASS} | smoke:${SMOKE_PASS}" \
+         >> .agent-power-pack/deploy.log
+     ```
+
+  Verification failures are reported but do NOT roll back the deploy —
+  they are informational. Rollback is a human decision.
+
+  ## Step 11: Report
+
+  On success:
+
+  ```
+  Deployment complete
+
+    Target:       make {TARGET}
+    Commit:       {short SHA}
+    Branch:       {branch}
+    Time:         {ISO timestamp}
+    Health:       {pass|fail|skipped}
+    Smoke tests:  {pass|fail|skipped}
+    Log:          .agent-power-pack/deploy.log
+  ```
+
+  On failure:
+
+  ```
+  Deployment failed
+
+    Target: make {TARGET}
+    Exit:   {code}
+
+  Review the output above. The deploy log was updated with the failure.
+  ```
+
+  ## Error handling
+
+  - **No Makefile**: STOP at Step 2 with guidance.
+  - **Target not found**: STOP at Step 3, list available targets.
+  - **Woodpecker checklist fail**: STOP at Step 5.
+  - **Security gate CRITICAL**: STOP at Step 6.
+  - **Grill verdict `no`**: STOP at Step 7.
+  - **Deploy exit non-zero**: report at Step 11; no rollback.
+
+  ## Notes
+
+  - Deployment always flows through `make`; the Makefile is the
+    authoritative deploy definition.
+  - The `.agent-power-pack/deploy.log` provides an audit trail.
+  - Optional `.specify/deploy.yaml` adds metadata without changing the
+    Makefile.
+  - Verification is best-effort; deploy failures are never rolled back
+    automatically.

@@ -1,0 +1,168 @@
+# manifests/flow/check.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/check.md.
+# Substitutions per agent-power-pack Constitution:
+#   - `lib/cicd` + `lib/security` shell-outs replaced with the native
+#     `agent-power-pack` CLI (Python 3.11+/uv workspace).
+#   - Added `agents-md:lint` as a first-class check (Principle II + FR-004).
+
+name: check
+family: flow
+description: >-
+  Run local quality gates without committing: lint, tests, security scan,
+  AGENTS.md lint, Makefile completeness. Read-only pre-flight validation
+  before /flow:finish.
+triggers:
+  - /flow:check
+  - flow check
+  - run quality gates
+  - pre-flight check
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 30
+prompt: |
+  # /flow:check — Run Quality Gates Without Committing
+
+  Run lint, tests, security, and documentation checks to verify code
+  quality. Never commits, pushes, or modifies files. Use this before
+  `/flow:finish` to validate changes.
+
+  ## Step 1: Detect available checks
+
+  ```bash
+  CHECKS_RUN=0
+  CHECKS_PASS=0
+  CHECKS_WARN=0
+  CHECKS_FAIL=0
+
+  HAS_LINT=false
+  HAS_TEST=false
+  if [[ -f "Makefile" ]]; then
+      grep -q "^lint:" Makefile && HAS_LINT=true
+      grep -q "^test:" Makefile && HAS_TEST=true
+  fi
+
+  command -v agent-power-pack >/dev/null 2>&1 && HAS_APP=true || HAS_APP=false
+  ```
+
+  `HAS_APP=true` means the native `agent-power-pack` CLI is on `PATH`
+  and the other checks (agents-md lint, security, cicd completeness)
+  can run. If `HAS_APP=false`, skip those sub-steps silently.
+
+  ## Step 2: Run lint
+
+  ```bash
+  if [[ "$HAS_LINT" == "true" ]]; then
+      echo "Running: make lint"
+      make lint
+      LINT_EXIT=$?
+      CHECKS_RUN=$((CHECKS_RUN + 1))
+      [[ $LINT_EXIT -eq 0 ]] && CHECKS_PASS=$((CHECKS_PASS + 1)) \
+                             || CHECKS_FAIL=$((CHECKS_FAIL + 1))
+  fi
+  ```
+
+  ## Step 3: Run tests
+
+  ```bash
+  if [[ "$HAS_TEST" == "true" ]]; then
+      echo "Running: make test"
+      make test
+      TEST_EXIT=$?
+      CHECKS_RUN=$((CHECKS_RUN + 1))
+      [[ $TEST_EXIT -eq 0 ]] && CHECKS_PASS=$((CHECKS_PASS + 1)) \
+                             || CHECKS_FAIL=$((CHECKS_FAIL + 1))
+  fi
+  ```
+
+  ## Step 4: Run AGENTS.md lint (Principle II gate)
+
+  ```bash
+  if [[ "$HAS_APP" == "true" ]] && [[ -f "AGENTS.md" ]]; then
+      echo "Running: agent-power-pack lint agents-md"
+      agent-power-pack lint agents-md
+      AMD_EXIT=$?
+      CHECKS_RUN=$((CHECKS_RUN + 1))
+      [[ $AMD_EXIT -eq 0 ]] && CHECKS_PASS=$((CHECKS_PASS + 1)) \
+                            || CHECKS_FAIL=$((CHECKS_FAIL + 1))
+  fi
+  ```
+
+  The linter enforces: (a) required sections present, (b) every
+  referenced Make target / command / Docker service / CI file exists,
+  (c) generated files (CLAUDE.md / GEMINI.md / .cursorrules) are in
+  sync. Any failure is blocking.
+
+  ## Step 5: Run security quick scan
+
+  ```bash
+  if [[ "$HAS_APP" == "true" ]]; then
+      echo "Running: agent-power-pack security quick"
+      agent-power-pack security quick
+      SEC_EXIT=$?
+      CHECKS_RUN=$((CHECKS_RUN + 1))
+      case "$SEC_EXIT" in
+          0) CHECKS_PASS=$((CHECKS_PASS + 1)) ;;
+          2) CHECKS_WARN=$((CHECKS_WARN + 1)) ;;  # HIGH findings only
+          *) CHECKS_FAIL=$((CHECKS_FAIL + 1)) ;;  # CRITICAL or error
+      esac
+  fi
+  ```
+
+  Severity behavior (defaults; configurable in `.specify/security.yaml`):
+
+  | Severity | Exit | Effect |
+  |----------|------|--------|
+  | CRITICAL | non-zero (not 2) | Blocks `/flow:finish` |
+  | HIGH     | 2 | Warns, does not block |
+  | MEDIUM/LOW | 0 | Passes silently |
+
+  ## Step 6: Makefile completeness (non-blocking)
+
+  ```bash
+  if [[ "$HAS_APP" == "true" ]] && [[ -f "Makefile" ]]; then
+      agent-power-pack cicd check --summary
+      CICD_EXIT=$?
+      CHECKS_RUN=$((CHECKS_RUN + 1))
+      [[ $CICD_EXIT -eq 0 ]] && CHECKS_PASS=$((CHECKS_PASS + 1)) \
+                             || CHECKS_WARN=$((CHECKS_WARN + 1))
+  fi
+  ```
+
+  Never blocks — missing targets become warnings.
+
+  ## Step 7: Report
+
+  ```markdown
+  ## Flow Check Results
+
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | Lint (`make lint`) | PASS/FAIL/SKIP | |
+  | Tests (`make test`) | PASS/FAIL/SKIP | |
+  | AGENTS.md lint | PASS/FAIL/SKIP | rule ID on failure |
+  | Security scan | PASS/WARN/FAIL/SKIP | count of findings by severity |
+  | Makefile completeness | PASS/WARN/SKIP | N/M targets |
+
+  **Summary: {CHECKS_PASS} passed, {CHECKS_WARN} warnings, {CHECKS_FAIL} failed ({CHECKS_RUN} checks run)**
+  ```
+
+  ### Final message
+
+  - **All pass**: "Ready for `/flow:finish`."
+  - **Warnings only**: "Warnings found but non-blocking. Review before `/flow:finish`."
+  - **Failures**: "Failing checks must be fixed before `/flow:finish`."
+
+  ## Notes
+
+  - Read-only: never commits, pushes, or modifies files.
+  - Runs the SAME gates as `/flow:finish` Step 2, extracted for
+    standalone use, so you can iterate quickly without triggering the
+    commit path.
+  - When `agent-power-pack` is not yet installed (early dogfood), only
+    the `make` targets run — the rest skip silently.
