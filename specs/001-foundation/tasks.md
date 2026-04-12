@@ -22,7 +22,7 @@ description: "Task list for the Agent Power Pack Foundation feature"
 
 Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key roots:
 
-- `src/agent_power_pack/` — installable Python package (linter, generator, app:init, grill, secrets, cicd)
+- `src/agent_power_pack/` — installable Python package (linter, generator, project:init, grill, secrets, cicd)
 - `adapters/<runtime>/` — per-runtime transpilers
 - `manifests/<family>/*.yaml` — neutral skill catalog
 - `mcp_container/` — single-container MCP build context
@@ -182,28 +182,28 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 
 ---
 
-## Phase 8: User Story 6 — Plane + Wiki.js defaults, `app:init` guided wizard (Priority: P2)
+## Phase 8: User Story 6 — Plane + Wiki.js defaults, `project:init` guided wizard (Priority: P2)
 
-**Goal**: `app:init` bootstraps a new project end-to-end, including a guided Plane + Wiki.js configuration through the tiered secrets layer. `/issue:*` defaults to Plane, `/docs:c4` publishes to Wiki.js, `/docs:pptx` does not exist.
+**Goal**: `project:init` bootstraps a new project end-to-end, including a guided Plane + Wiki.js configuration through the tiered secrets layer. `/issue:*` defaults to Plane, `/docs:c4` publishes to Wiki.js, `/docs:pptx` does not exist.
 
-**Independent Test**: Run `app:init` in a fresh directory with valid Plane/Wiki.js creds; both connectivity checks pass and `AGENTS.md` gains an `External Systems` section.
+**Independent Test**: Run `project:init` in a fresh directory with valid Plane/Wiki.js creds; both connectivity checks pass and `AGENTS.md` gains an `External Systems` section.
 
 - [ ] T079 [US6] Implement the `SecretTier` Protocol and `DotenvTier` in `src/agent_power_pack/secrets/dotenv_tier.py` per `data-model.md §10`.
 - [ ] T080 [P] [US6] Implement `EnvFileTier` in `src/agent_power_pack/secrets/env_file_tier.py`.
 - [ ] T081 [P] [US6] Implement `AwsSidecarTier` in `src/agent_power_pack/secrets/aws_sidecar_tier.py` reading via the sidecar's local HTTP endpoint (`http://127.0.0.1:2773/`).
 - [ ] T082 [US6] Implement tier-resolution in `src/agent_power_pack/secrets/__init__.py` (order: aws-sidecar → env-file → dotenv; first-available wins on read; writes go to dotenv by default).
 - [ ] T083 [P] [US6] Unit tests in `tests/unit/test_secrets_tiers.py` covering read fallthrough, write routing, sidecar unavailability.
-- [ ] T084 [US6] Implement `app:init` wizard in `src/agent_power_pack/app_init/wizard.py` scaffolding AGENTS.md + Makefile + compose.yaml from `src/agent_power_pack/app_init/templates/`, then running the Plane + Wiki.js guided config.
-- [ ] T085 [US6] Implement the Plane connectivity probe in `src/agent_power_pack/app_init/probes.py` (`GET /api/v1/workspaces/{slug}/` expecting 200) per `research.md §8`.
+- [ ] T084 [US6] Implement `project:init` wizard in `src/agent_power_pack/project_init/wizard.py` scaffolding AGENTS.md + Makefile + compose.yaml from `src/agent_power_pack/project_init/templates/`, then running the Plane + Wiki.js guided config.
+- [ ] T085 [US6] Implement the Plane connectivity probe in `src/agent_power_pack/project_init/probes.py` (`GET /api/v1/workspaces/{slug}/` expecting 200) per `research.md §8`.
 - [ ] T086 [US6] Implement the Wiki.js connectivity probe (GraphQL `{ pages { list(limit: 1) { id } } }`) per `research.md §8`.
 - [ ] T087 [US6] Implement the AWS sidecar health probe (`GET http://127.0.0.1:2773/healthz`) per `research.md §8`.
-- [ ] T088 [US6] Implement the "External Systems" section writer in `src/agent_power_pack/app_init/agents_md_update.py` adding a generated section to AGENTS.md with configured endpoints.
+- [ ] T088 [US6] Implement the "External Systems" section writer in `src/agent_power_pack/project_init/agents_md_update.py` adding a generated section to AGENTS.md with configured endpoints.
 - [ ] T089 [US6] Wire `agent-power-pack init` and `agent-power-pack init --reconfigure {plane|wikijs}` in `src/agent_power_pack/cli.py`.
 - [ ] T090 [P] [US6] Author `manifests/issue/*.yaml` for `issue:create`, `issue:update`, `issue:list`, `issue:close`, `issue:help` using `plane-mcp` tools.
 - [ ] T091 [P] [US6] Author `manifests/wiki/*.yaml` for `wiki:create-page`, `wiki:update-page`, `wiki:search` using `wikijs-mcp` tools.
 - [ ] T092 [P] [US6] Author `manifests/docs/c4.yaml` using `wikijs-mcp.publish_c4`. Do NOT create `manifests/docs/pptx.yaml` (spec FR-011).
-- [ ] T093 [P] [US6] Integration test in `tests/integration/test_app_init_wizard.py` covering the happy path and both `--skip` paths.
-- [ ] T094 [P] [US6] Performance test in `tests/perf/test_app_init.py` asserting app:init (Plane + Wiki.js skipped) completes in < 10s.
+- [ ] T093 [P] [US6] Integration test in `tests/integration/test_project_init_wizard.py` covering the happy path and both `--skip` paths.
+- [ ] T094 [P] [US6] Performance test in `tests/perf/test_project_init.py` asserting project:init (Plane + Wiki.js skipped) completes in < 10s.
 
 **Checkpoint**: User Story 6 complete — new projects bootstrap with Plane/Wiki.js configured in a single run.
 
@@ -235,7 +235,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 - [ ] T107 [P] Author `manifests/qa/*.yaml` for `qa:test`, `qa:help`.
 - [ ] T108 [P] Author `manifests/agents-md/*.yaml` for `agents-md:lint`, `agents-md:help`.
 - [ ] T109 [P] Author `manifests/second-opinion/*.yaml` for `second-opinion:start`, `second-opinion:models`, `second-opinion:help`, and a new `second-opinion:grill-plan` wrapping the `grill_plan` MCP tool.
-- [ ] T110 [P] Author `manifests/project/*.yaml` for `project:init` (alias for `app:init`), `project:lite`, `project:next`.
+- [ ] T110 [P] Author `manifests/project/*.yaml` for `project:init` , `project:lite`, `project:next`.
 
 ---
 
@@ -290,7 +290,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 2. **Gate release**: add Phase 4 (US2) — AGENTS.md lint as a real gate.
 3. **Container release**: add Phase 5 (US3) — single-container MCP.
 4. **Grill release**: add Phases 6 + 7 (US4 + US5) — grill skills.
-5. **Defaults release**: add Phase 8 (US6) — Plane/Wiki.js defaults + app:init wizard.
+5. **Defaults release**: add Phase 8 (US6) — Plane/Wiki.js defaults + project:init wizard.
 6. **Checklist release**: add Phase 9 — Woodpecker checklist.
 7. **Catalog release**: add Phase 10 — full skill catalog port.
 8. **v0.1.0 tag**: Phase 11 polish.

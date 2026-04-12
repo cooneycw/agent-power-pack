@@ -1,7 +1,7 @@
 # manifests/project/next.yaml
 #
 # Net-new skill defined in FR-020.
-# Canonical command: project:next. Alias: app:next.
+# Canonical command: project:next.
 # Issue picker: queries the active issue backend and recommends the best
 # next issue to work on based on priority, blocked status, parallel
 # safety, and phase ordering.
@@ -11,12 +11,10 @@ family: project
 description: >-
   Recommend the single best issue to work on next from the active
   issue backend (Plane or GitHub). Factors in priority, unblocked
-  dependencies, parallel safety, and phase ordering. Alias: app:next.
+  dependencies, parallel safety, and phase ordering.
 triggers:
   - /project:next
-  - /app:next
   - project next
-  - app next
   - what should I work on
   - next issue
   - pick an issue
@@ -33,7 +31,7 @@ mcp_tools:
 attribution: null
 order: 5
 prompt: |
-  # /project:next (alias: /app:next) — What Should I Work On?
+  # /project:next  — What Should I Work On?
 
   Query the active issue backend and recommend the single best issue
   to start next. The goal: eliminate the manual issue-tracker scan at
@@ -166,7 +164,7 @@ prompt: |
 
   ## Error handling
 
-  - **No issue backend**: STOP, suggest `app:init --reconfigure`.
+  - **No issue backend**: STOP, suggest `project:init --reconfigure`.
   - **No open issues**: "No actionable issues found."
   - **GitHub API rate limit**: report the limit reset time.
   - **Plane unreachable**: fall back to GitHub (if git remote is GH),
@@ -174,11 +172,10 @@ prompt: |
 
   ## Notes
 
-  - `project:next` = `app:next`. Same manifest (FR-020 + FR-015a).
   - This skill is read-only: it never modifies issues, creates
     branches, or writes files.
   - The scoring formula is deliberately simple and transparent. If a
     user disagrees with the recommendation, they can just run
     `/flow:start <their_pick>` directly.
-  - `app:next` is the natural entry point to the dogfood loop defined
+  - `project:next` is the natural entry point to the dogfood loop defined
     in `README.md`. Call it at the top of every work session.

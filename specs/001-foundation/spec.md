@@ -201,28 +201,28 @@ answer to "what should I work on next?" from the issue backlog.
 the user base beyond teams that can run the full stack. Both are critical
 for velocity.
 
-**Independent Test**: (a) `app:lite my-script` in a temp dir produces a
+**Independent Test**: (a) `project:lite my-script` in a temp dir produces a
 valid `AGENTS.md`, generated runtime files, and a stub `Makefile` that
-passes `agents-md:lint`, with no Plane/Wiki.js prompts. (b) `app:next`
+passes `agents-md:lint`, with no Plane/Wiki.js prompts. (b) `project:next`
 in a repo with 10 open issues (5 `p1`, 5 `p2`, 2 blocked) returns a `p1`
 unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
 
 **Acceptance Scenarios**:
 
-1. **Given** a fresh empty directory, **When** `app:lite my-script` runs,
+1. **Given** a fresh empty directory, **When** `project:lite my-script` runs,
    **Then** `AGENTS.md` exists with six required sections, `CLAUDE.md` is
    generated, `Makefile` has `lint`, `test`, `verify` targets, and no
    `.specify/` directory is created.
-2. **Given** an `app:lite`-scaffolded project, **When**
+2. **Given** an `project:lite`-scaffolded project, **When**
    `agent-power-pack lint agents-md` runs, **Then** the lint passes.
 3. **Given** a repo with 10 open GitHub issues labeled `p1`/`p2`, some
    with `blockedBy` dependencies resolved and some not, **When**
-   `app:next` runs, **Then** the recommended issue is a `p1` issue
+   `project:next` runs, **Then** the recommended issue is a `p1` issue
    whose dependencies are all closed, and the output ends with
    `/flow:start <N>`.
-4. **Given** `app:next --top 3` runs, **Then** the output shows three
+4. **Given** `project:next --top 3` runs, **Then** the output shows three
    candidates ranked by priority × unblocked × phase.
-5. **Given** the Plane backend is configured, **When** `app:next` runs,
+5. **Given** the Plane backend is configured, **When** `project:next` runs,
    **Then** it queries Plane (not GitHub) and returns a Plane issue ID.
 
 ---
@@ -291,11 +291,11 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   first-class runtimes (per Principle I).
 - **FR-014** The repo MUST ship a `Makefile` with at minimum: `install`,
   `mcp-up`, `mcp-down`, `verify`, `lint`, `test`, `update-vendored-skills`.
-- **FR-015** A `app:init` skill MUST bootstrap a NEW project that uses
+- **FR-015** A `project:init` skill MUST bootstrap a NEW project that uses
   agent-power-pack: scaffold `AGENTS.md`, generate per-runtime instruction
   files, write a starter `Makefile`, install the MCP container compose file,
   and run a guided configuration step for Plane and Wiki.js (see FR-016).
-- **FR-016** `app:init` MUST offer a guided configuration step for the
+- **FR-016** `project:init` MUST offer a guided configuration step for the
   preferred external tools. For each of Plane and Wiki.js it MUST: (a) detect
   any existing credentials/URLs in the secrets layer; (b) if absent, prompt
   the user for base URL, workspace/space slug, and API token, with `--skip`
@@ -303,7 +303,7 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   files); (d) run a one-shot connectivity check against the configured
   endpoint and report pass/fail; (e) record the chosen workspace/space in
   `AGENTS.md` under a generated "External Systems" section. Skipped tools
-  MUST be re-promptable via `app:init --reconfigure plane|wikijs`.
+  MUST be re-promptable via `project:init --reconfigure plane|wikijs`.
 - **FR-016a** The secrets layer MUST be tiered: `dotenv` (dev default) →
   `env-file` → `aws-secretsmanager` (production default). The AWS tier MUST
   read secrets through the official Rust-based
@@ -339,8 +339,7 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   prompt for Plane, Wiki.js, or secrets configuration, bring up the MCP
   container, or create a spec-kit `.specify/` directory. Use case: small
   scripts, POCs, and personal utilities that benefit from the AGENTS.md
-  lint discipline but not the full infrastructure. `project:lite` MUST be
-  invocable as `app:lite` (alias).
+  lint discipline but not the full infrastructure.
 - **FR-020** A `project:next` skill MUST query the active issue backend
   (Plane via `plane-mcp` when configured, otherwise GitHub Issues via
   `gh`) and recommend the single best issue to work on next. The ranking
@@ -352,15 +351,8 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   output the issue number, title, priority, phase, and a one-line
   rationale for the recommendation, followed by a ready-to-paste
   `/flow:start <N>` invocation. If no open issues match, report "No
-  actionable issues found." `project:next` MUST be invocable as
-  `app:next` (alias). The skill MUST also support a `--top N` flag to
+  actionable issues found." The skill MUST also support a `--top N` flag to
   show the top N candidates instead of just the single best.
-- **FR-015a** `project:init` (canonical name) and `app:init` (alias)
-  refer to the same skill defined in FR-015 / FR-016 / FR-016a. The
-  `project:` family namespace is the user-facing prefix; `app:` is the
-  shorthand. Both MUST resolve to the same manifest and the same
-  implementation. `project:lite` = `app:lite` and `project:next` =
-  `app:next` follow the same aliasing convention.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -406,17 +398,17 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   upstream commit SHA and license.
 - **SC-007** Adding a new runtime requires writing one adapter under
   `adapters/<runtime>/` and zero changes to `manifests/`.
-- **SC-008** `app:init` on a fresh project produces a working agent-power-pack
+- **SC-008** `project:init` on a fresh project produces a working agent-power-pack
   installation with Plane and Wiki.js connectivity verified (or explicitly
   deferred) in a single guided run.
 - **SC-009** `cicd:woodpecker-checklist` rejects every known-bad pattern
   from the woodpecker-baseline findings (test fixture per finding) and
   passes a clean `.woodpecker.yml`.
-- **SC-010** `app:lite` in an empty directory produces a valid
+- **SC-010** `project:lite` in an empty directory produces a valid
   `AGENTS.md` + generated instruction files + stub `Makefile` that
   passes `agents-md:lint`, with no Plane/Wiki.js prompts fired and no
   `.specify/` directory created.
-- **SC-011** `app:next` against a repo with a mixed backlog (varying
+- **SC-011** `project:next` against a repo with a mixed backlog (varying
   priorities, some blocked, some parallel-safe) returns the correct
   top-ranked unblocked issue and a ready-to-paste `/flow:start <N>`
   invocation. `--top 3` returns 3 ranked candidates.

@@ -6,10 +6,10 @@
 #   - Adds: grill-me + grill-yourself skills installed, manifest
 #     validator runnable, AGENTS.md canonical + generated files in sync,
 #     MCP container (6 servers on 12 ports) reachable, aws-secretsmanager
-#     -agent sidecar healthy, Plane + Wiki.js connectivity via app:init
+#     -agent sidecar healthy, Plane + Wiki.js connectivity via project:init
 #     --status, spec-kit structure (.specify/) present.
 #   - Drops Makefile template catalog (we ship our own template set in
-#     src/agent_power_pack/app_init/templates/).
+#     src/agent_power_pack/project_init/templates/).
 
 name: doctor
 family: flow
@@ -256,8 +256,8 @@ prompt: |
   ### External systems
   | Check | Status |
   |-------|--------|
-  | Plane (app:init --status) | |
-  | Wiki.js (app:init --status) | |
+  | Plane (project:init --status) | |
+  | Wiki.js (project:init --status) | |
 
   ### GitHub integration
   | Check | Status |

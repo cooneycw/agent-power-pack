@@ -2,7 +2,7 @@
 #
 # Adapted from claude-power-pack .claude/commands/project/init.md (686 lines)
 # and our spec FR-015 / FR-016 / FR-016a / FR-015a.
-# Canonical command name: project:init. Alias: app:init.
+# Canonical command name: project:init.
 # Full scaffolder: zero to pushed-repo with AGENTS.md, generated per-runtime
 # instruction files, Makefile, compose.yaml, MCP container config, tiered
 # secrets layer, Plane + Wiki.js guided wizard, and initial spec.
@@ -12,12 +12,10 @@ family: project
 description: >-
   Full project scaffolding: zero to pushed GitHub repo with AGENTS.md
   (canonical), generated instruction files, Makefile, MCP container,
-  Plane + Wiki.js config wizard, and initial spec. Alias: app:init.
+  Plane + Wiki.js config wizard, and initial spec.
 triggers:
   - /project:init
-  - /app:init
   - project init
-  - app init
   - bootstrap project
   - scaffold project
 runtimes:
@@ -33,7 +31,7 @@ mcp_tools:
 attribution: null
 order: 10
 prompt: |
-  # /project:init (alias: /app:init) — Full Project Scaffolding
+  # /project:init  — Full Project Scaffolding
 
   Create a new project from zero to pushed GitHub repo in one command.
   Covers everything: directory structure, AGENTS.md canonical scaffold,
@@ -58,7 +56,7 @@ prompt: |
   PROJECT_DIR="${HOME}/Projects/${PROJECT_NAME}"
   if [[ -d "$PROJECT_DIR" ]]; then
       echo "ERROR: $PROJECT_DIR already exists."
-      echo "Use 'app:init --here' to initialize inside an existing directory."
+      echo "Use 'project:init --here' to initialize inside an existing directory."
       exit 1
   fi
 
@@ -70,7 +68,7 @@ prompt: |
 
   Ask the user (or auto-detect if they pass `--framework <X>`) which
   framework template to use. Supported templates live at
-  `src/agent_power_pack/app_init/templates/`. At minimum:
+  `src/agent_power_pack/project_init/templates/`. At minimum:
 
   - `python-uv` (default if uv is available)
   - `python-pip`
@@ -112,7 +110,7 @@ prompt: |
   ```bash
   git init
   git add -A
-  git commit -m "chore: scaffold ${PROJECT_NAME} via app:init
+  git commit -m "chore: scaffold ${PROJECT_NAME} via project:init
 
   Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
@@ -141,8 +139,8 @@ prompt: |
   5. **Record in AGENTS.md** — add an `## External Systems` section
      naming the configured endpoints.
 
-  Skipped tools MUST be re-promptable via `app:init --reconfigure plane`
-  or `app:init --reconfigure wikijs`.
+  Skipped tools MUST be re-promptable via `project:init --reconfigure plane`
+  or `project:init --reconfigure wikijs`.
 
   ## Step 6: Install the skill catalog
 
@@ -199,8 +197,7 @@ prompt: |
 
   ## Notes
 
-  - `project:init` = `app:init`. They are the same manifest (FR-015a).
   - For a minimal scaffold WITHOUT Plane/Wiki.js/MCP/spec-kit, use
-    `project:lite` (`app:lite`) instead.
+    `project:lite` (`project:lite`) instead.
   - `project:init --here` initializes the current directory instead of
     creating a new one under `~/Projects/`.
