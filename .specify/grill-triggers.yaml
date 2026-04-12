@@ -1,0 +1,5 @@
+# grill-yourself trigger thresholds
+# Override per-commit with trailer: grill-yourself: force|skip
+max_lines: 200
+max_files: 5
+exclude_globs: []
