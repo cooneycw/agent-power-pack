@@ -148,19 +148,104 @@ def init(
 
 @app.command()
 def flow(
-    step: str = typer.Argument(..., help="Flow step: start, check, finish, auto, merge, deploy, etc."),
+    step: str = typer.Argument(
+        ..., help="Flow step: start, check, finish, auto, merge, deploy, etc."
+    ),
     issue: str = typer.Argument(None, help="Issue number (required for some steps)."),
 ) -> None:
     """Run flow steps (start, check, finish, auto, merge, deploy)."""
-    typer.echo(f"flow: step={step}, issue={issue} [stub]")
+    if step == "finish":
+        import subprocess
+
+        from agent_power_pack.grill.triggers import should_grill
+        from agent_power_pack.grill.yourself import run_grill_yourself
+
+        # Collect numstat diff against origin/main
+        try:
+            diff_result = subprocess.run(
+                ["git", "diff", "--numstat", "origin/main...HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            numstat = diff_result.stdout.strip()
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            numstat = ""
+
+        # Parse HEAD commit for grill-yourself trailer
+        trailer: str | None = None
+        try:
+            msg_result = subprocess.run(
+                ["git", "log", "-1", "--format=%B"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            for line in msg_result.stdout.strip().splitlines():
+                stripped = line.strip().lower()
+                if stripped.startswith("grill-yourself:"):
+                    trailer = stripped.split(":", 1)[1].strip()
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+
+        decision = should_grill(numstat, trailer=trailer)
+        typer.echo(f"flow finish: {decision.reason}")
+
+        if decision.should_fire:
+            # Detect PR ref
+            pr_ref: str | None = None
+            try:
+                pr_result = subprocess.run(
+                    ["gh", "pr", "view", "--json", "number", "-q", ".number"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if pr_result.returncode == 0 and pr_result.stdout.strip():
+                    pr_ref = f"#{pr_result.stdout.strip()}"
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                pass
+
+            transcript = run_grill_yourself(pr_ref=pr_ref)
+            typer.echo(f"Grill-yourself complete: {len(transcript.questions)} questions")
+            typer.echo(f"Summary: {transcript.summary}")
+
+            # Attach transcript to PR if possible
+            if pr_ref:
+                from agent_power_pack.grill.transcript import render_markdown
+
+                md = render_markdown(transcript)
+                try:
+                    subprocess.run(
+                        ["gh", "pr", "edit", "--body", md],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    typer.echo(f"Transcript attached to PR {pr_ref}")
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    typer.echo("Could not attach transcript to PR")
+        else:
+            typer.echo("Grill-yourself not triggered.")
+    else:
+        typer.echo(f"flow: step={step}, issue={issue} [stub]")
 
 
 @app.command()
 def grill(
     mode: str = typer.Argument(..., help="Grill mode: me, yourself."),
+    plan: str = typer.Option(None, "--plan", "-p", help="Plan text to grill."),
+    spec_id: str = typer.Option(None, "--spec-id", help="Spec ID for transcript filename."),
 ) -> None:
     """Run grill skills (me, yourself)."""
-    typer.echo(f"grill: mode={mode} [stub]")
+    if mode == "yourself":
+        from agent_power_pack.grill.yourself import run_grill_yourself
+
+        transcript = run_grill_yourself(plan=plan, spec_id=spec_id)
+        typer.echo(f"Grill-yourself complete: {len(transcript.questions)} questions")
+        typer.echo(f"Summary: {transcript.summary}")
+    else:
+        typer.echo(f"grill: mode={mode} [stub -- see Phase 7 for grill:me]")
 
 
 def main() -> None:
