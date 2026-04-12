@@ -9,6 +9,16 @@ Code / Codex CLI / Gemini CLI / Cursor, lints AGENTS.md, ships a single
 multi-protocol MCP container including second-opinion, plane and wikijs, and
 includes both grill-me (vendored from mattpocock/skills) and grill-yourself."
 
+## Clarifications
+
+### Session 2026-04-11
+
+- Q: Skill manifest format? → A: YAML (`manifests/<family>/<skill>.yaml`)
+- Q: Default secrets layer? → A: Tiered dotenv → env-file → AWS Secrets Manager, with the Rust-based aws-secretsmanager-agent sidecar (Docker-first) as the default production tier
+- Q: Primary implementation language? → A: Python 3.11+ with uv (Rust sidecar only for aws-secretsmanager-agent)
+- Q: grill-yourself trigger heuristic? → A: Diff-size threshold (defaults: >200 changed lines OR >5 files; thresholds configurable in `.specify/grill-triggers.yaml`)
+- Q: MCP container base image? → A: `mcr.microsoft.com/playwright/python:v1.x-jammy` (pre-baked browsers, single-container-friendly)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Bootstrap a project on any supported runtime (Priority: P1)
@@ -221,8 +231,14 @@ page lands in Wiki.js.
   SHA, with attribution preserved in the skill manifest header and a top-level
   `ATTRIBUTION.md` file linking back to the upstream repo and license.
 - **FR-008** The `grill-yourself` skill MUST run automatically as a gate
-  before `/flow:finish` on changes touching `mcp-container/`, `manifests/`,
-  or `AGENTS.md`, and MUST attach its transcript to the PR description.
+  before `/flow:finish` when the pending change exceeds EITHER of two
+  diff-size thresholds: **>200 changed lines** OR **>5 changed files**
+  (measured against the merge base). Both thresholds MUST be configurable
+  in `.specify/grill-triggers.yaml` (keys: `max_lines`, `max_files`) and
+  MUST be overridable per-PR via a `grill-yourself: force|skip` trailer in
+  the commit message. When triggered, `grill-yourself` MUST attach its
+  transcript to the PR description. Path-based triggers are explicitly out
+  of scope to keep the heuristic uniform across all areas of the repo.
 - **FR-009** `/spec:sync` MUST publish spec artifacts to both Plane (as
   issues/cycles) and Wiki.js (as pages) when those integrations are configured.
 - **FR-010** `/issue:*` skills MUST default to `plane-mcp`. A `gh`-backed
@@ -249,6 +265,15 @@ page lands in Wiki.js.
   endpoint and report pass/fail; (e) record the chosen workspace/space in
   `AGENTS.md` under a generated "External Systems" section. Skipped tools
   MUST be re-promptable via `cpp:init --reconfigure plane|wikijs`.
+- **FR-016a** The secrets layer MUST be tiered: `dotenv` (dev default) →
+  `env-file` → `aws-secretsmanager` (production default). The AWS tier MUST
+  read secrets through the official Rust-based
+  [`aws-secretsmanager-agent`](https://github.com/awslabs/aws-secretsmanager-agent)
+  sidecar, packaged as a Docker container, started alongside the MCP container
+  by `make mcp-up`. No skill, MCP server, or init script may read AWS Secrets
+  Manager directly — every production read MUST traverse the sidecar's local
+  HTTP endpoint. Dotenv and env-file tiers remain available as fallbacks and
+  are selected automatically when the sidecar is not running.
 - **FR-017** A `cicd:woodpecker-checklist` skill MUST ship a checklist
   template derived from learned findings in
   [`cooneycw/woodpecker-baseline`](https://github.com/cooneycw/woodpecker-baseline).
@@ -268,9 +293,14 @@ page lands in Wiki.js.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Skill Manifest**: A neutral YAML/JSON description of a skill: name,
-  trigger phrases, supported runtimes, prompt body, required MCP tools,
-  attribution. Lives in `manifests/<family>/<skill>.yaml`.
+- **Skill Manifest**: A neutral **YAML** description of a skill, stored at
+  `manifests/<family>/<skill>.yaml`. Required top-level keys: `name`,
+  `family`, `description`, `triggers` (list), `runtimes` (list — must cover
+  every first-class runtime per Principle I), `prompt` (multi-line body),
+  `mcp_tools` (list, may be empty), `attribution` (object with `source`,
+  `commit_sha`, `license` — required for vendored skills, optional for
+  native). Manifests are hand-authored; adapters read them at install time
+  and emit per-runtime layouts.
 - **Runtime Adapter**: Code that takes a set of skill manifests and emits
   the runtime-specific layout (`.claude/skills/`, `.codex/skills/`,
   `.gemini/`, `.cursor/`). Lives in `adapters/<runtime>/`.
@@ -311,6 +341,24 @@ page lands in Wiki.js.
 - **SC-009** `cicd:woodpecker-checklist` rejects every known-bad pattern
   from the woodpecker-baseline findings (test fixture per finding) and
   passes a clean `.woodpecker.yml`.
+
+## Technical Constraints
+
+- **Implementation language**: Python 3.11+ managed by [`uv`](https://docs.astral.sh/uv/)
+  for every component EXCEPT the AWS Secrets Manager sidecar, which is the
+  official Rust-based `aws-secretsmanager-agent`. No other language may be
+  introduced without a constitutional amendment.
+- **Package management**: `uv` workspaces; pinned Python versions in
+  `pyproject.toml`. No `pip`, `poetry`, or `conda` in the primary toolchain.
+- **Containerization**: Docker-first. `make mcp-up` brings up the MCP
+  container AND the aws-secretsmanager-agent sidecar via a single compose
+  file.
+- **MCP container base image**: `mcr.microsoft.com/playwright/python:v1.x-jammy`
+  (Ubuntu Jammy, pre-baked Chromium / Firefox / WebKit). Chosen so the
+  `playwright-persistent` MCP server can coexist with the other five servers
+  in a single container without a multi-hundred-MB browser install at build
+  time. The exact Playwright patch version is pinned in `mcp-container/Dockerfile`
+  and bumped via PR.
 
 ## Out of Scope (v0.1.0)
 

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-power-pack.dev/schemas/skill-manifest.json",
+  "title": "Skill Manifest",
+  "description": "Neutral, runtime-agnostic skill definition for agent-power-pack. Source of truth is a YAML file under manifests/<family>/<skill>.yaml.",
+  "type": "object",
+  "required": ["name", "family", "description", "triggers", "runtimes", "prompt"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "Snake-case identifier; unique within family."
+    },
+    "family": {
+      "type": "string",
+      "enum": [
+        "flow", "spec", "cicd", "docs", "security", "secrets",
+        "qa", "agents-md", "second-opinion", "issue", "wiki",
+        "project", "grill"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "triggers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Natural-language or slash-command triggers. The Claude adapter maps these to SKILL.md triggers; the Codex adapter maps them to prompt file names."
+    },
+    "runtimes": {
+      "type": "array",
+      "description": "MUST contain every first-class runtime (Principle I).",
+      "items": {
+        "type": "string",
+        "enum": ["claude-code", "codex-cli", "gemini-cli", "cursor"]
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Multi-line prompt body rendered into each runtime's native skill format."
+    },
+    "mcp_tools": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": ["server", "tool"],
+        "additionalProperties": false,
+        "properties": {
+          "server": {
+            "type": "string",
+            "enum": ["second-opinion", "plane", "wikijs", "nano-banana", "playwright", "woodpecker"]
+          },
+          "tool": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "attribution": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["source", "commit_sha", "license"],
+          "additionalProperties": false,
+          "properties": {
+            "source": { "type": "string", "format": "uri" },
+            "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "license": { "type": "string", "minLength": 1 },
+            "author": { "type": "string" }
+          }
+        }
+      ],
+      "description": "Required and non-null for any skill whose manifest lives under vendor/skills/."
+    },
+    "order": {
+      "type": "integer",
+      "default": 100,
+      "minimum": 0,
+      "maximum": 9999
+    }
+  }
+}
