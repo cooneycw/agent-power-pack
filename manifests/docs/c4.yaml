@@ -1,0 +1,46 @@
+name: c4
+family: docs
+description: Publish a C4 architecture diagram to Wiki.js.
+triggers:
+  - /docs:c4
+  - publish c4
+  - c4 diagram
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: wikijs
+    tool: publish_c4
+attribution: null
+order: 10
+prompt: |
+  # /docs:c4 — Publish C4 Diagram
+
+  Generate and publish a C4 architecture diagram to Wiki.js.
+
+  ## Arguments
+
+  - `LEVEL` (required): C4 level — context, container, component, or code.
+  - `--path`: Wiki.js page path (default: "architecture/c4-{level}").
+  - `--title`: page title (default: "C4 {Level} Diagram").
+
+  ## Steps
+
+  1. Analyze the current codebase structure for the requested C4 level.
+  2. Generate a PlantUML or Mermaid C4 diagram.
+  3. Call `wikijs.publish_c4` to create or update the diagram page.
+  4. Report the published page URL.
+
+  ## C4 Levels
+
+  - **Context**: system context — shows external actors and systems.
+  - **Container**: shows containers (apps, databases, services).
+  - **Component**: shows components within a single container.
+  - **Code**: shows code-level classes/modules (use sparingly).
+
+  ## Error handling
+
+  - If Wiki.js is unreachable, suggest reconfiguration.
+  - If the page exists, update it (idempotent).

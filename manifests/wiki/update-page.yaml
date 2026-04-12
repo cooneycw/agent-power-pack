@@ -1,0 +1,38 @@
+name: update-page
+family: wiki
+description: Update an existing Wiki.js page.
+triggers:
+  - /wiki:update-page
+  - update wiki page
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: wikijs
+    tool: update_page
+attribution: null
+order: 20
+prompt: |
+  # /wiki:update-page — Update Wiki Page
+
+  Update content of an existing Wiki.js page.
+
+  ## Arguments
+
+  - `PAGE_ID` (required): page ID or path to update.
+  - `--content`: new page content in markdown.
+  - `--title`: new page title.
+  - `--tags`: replacement tags (comma-separated).
+
+  ## Steps
+
+  1. Detect the Wiki.js instance.
+  2. Call `wikijs.update_page` with the changed fields.
+  3. Report the updated page URL.
+
+  ## Error handling
+
+  - If the page does not exist, report clearly.
+  - If Wiki.js is unreachable, suggest reconfiguration.

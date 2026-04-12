@@ -1,0 +1,39 @@
+name: create
+family: issue
+description: Create a new issue in Plane.
+triggers:
+  - /issue:create
+  - create issue
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: create_issue
+attribution: null
+order: 10
+prompt: |
+  # /issue:create — Create Issue
+
+  Create a new issue in the configured Plane workspace.
+
+  ## Arguments
+
+  - `TITLE` (required): short summary of the issue.
+  - `DESCRIPTION` (optional): detailed description in markdown.
+  - `PRIORITY` (optional): urgent, high, medium, low, none (default: none).
+  - `ASSIGNEE` (optional): username to assign the issue to.
+
+  ## Steps
+
+  1. Detect the active Plane workspace from AGENTS.md `External Systems` section
+     or from secrets (`PLANE_WORKSPACE`).
+  2. Call `plane.create_issue` with the provided fields.
+  3. Report the created issue number and URL.
+
+  ## Error handling
+
+  - If Plane is unreachable, suggest `agent-power-pack init --reconfigure plane`.
+  - If required fields are missing, prompt the user.

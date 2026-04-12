@@ -1,0 +1,36 @@
+name: close
+family: issue
+description: Close a Plane issue.
+triggers:
+  - /issue:close
+  - close issue
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: update_issue
+attribution: null
+order: 40
+prompt: |
+  # /issue:close — Close Issue
+
+  Transition a Plane issue to the "Done" state.
+
+  ## Arguments
+
+  - `ISSUE` (required): issue number to close.
+  - `--comment`: optional closing comment.
+
+  ## Steps
+
+  1. Detect the active Plane workspace.
+  2. Call `plane.update_issue` to set the state to "Done".
+  3. Report success with the issue number and final state.
+
+  ## Error handling
+
+  - If the issue is already closed, report "Issue #N is already closed."
+  - If Plane is unreachable, suggest reconfiguration.

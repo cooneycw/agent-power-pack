@@ -140,10 +140,89 @@ def generate(
 
 @app.command()
 def init(
-    reconfigure: str = typer.Option(None, "--reconfigure", help="Reconfigure a specific integration (plane, wikijs)."),
+    project_name: str = typer.Argument(None, help="Project directory name to create."),
+    framework: str = typer.Option("generic", "--framework", "-f", help="Project framework."),
+    skip_plane: bool = typer.Option(False, "--skip-plane", help="Skip Plane connectivity probe."),
+    skip_wikijs: bool = typer.Option(False, "--skip-wikijs", help="Skip Wiki.js connectivity probe."),
+    reconfigure: str = typer.Option(
+        None, "--reconfigure", help="Re-run probe for a specific integration (plane, wikijs)."
+    ),
+    here: bool = typer.Option(False, "--here", help="Init in the current directory."),
 ) -> None:
     """Bootstrap a new project with guided Plane + Wiki.js setup."""
-    typer.echo(f"init: reconfigure={reconfigure} [stub]")
+    from pathlib import Path
+
+    from rich.console import Console
+
+    from agent_power_pack.cpp_init.wizard import run_wizard
+
+    console = Console()
+
+    if reconfigure:
+        _handle_reconfigure(reconfigure, console)
+        return
+
+    if here:
+        target_dir = Path.cwd()
+    elif project_name:
+        target_dir = Path.cwd() / project_name
+    else:
+        console.print("[red]Provide a PROJECT_NAME or use --here.[/red]")
+        raise typer.Exit(code=1)
+
+    report = run_wizard(
+        target_dir,
+        framework=framework,
+        skip_plane=skip_plane,
+        skip_wikijs=skip_wikijs,
+    )
+
+    console.print(f"\n[bold green]Project initialized in {report.target_dir}[/bold green]")
+    console.print(f"Framework: {report.framework}")
+    console.print(f"Files created: {len(report.files_created)}")
+    for f in report.files_created:
+        console.print(f"  {f}")
+
+    if report.plane_probe:
+        status = "[green]OK[/green]" if report.plane_configured else "[red]FAILED[/red]"
+        console.print(f"Plane: {status}")
+    elif not skip_plane:
+        console.print("Plane: [yellow]skipped (no credentials)[/yellow]")
+
+    if report.wikijs_probe:
+        status = "[green]OK[/green]" if report.wikijs_configured else "[red]FAILED[/red]"
+        console.print(f"Wiki.js: {status}")
+    elif not skip_wikijs:
+        console.print("Wiki.js: [yellow]skipped (no credentials)[/yellow]")
+
+
+def _handle_reconfigure(integration: str, console: object) -> None:
+    """Re-run a probe for a specific integration."""
+    from agent_power_pack.cpp_init.probes import probe_plane, probe_wikijs
+    from agent_power_pack.secrets import get_secret
+
+    if integration == "plane":
+        url = get_secret("PLANE_URL")
+        workspace = get_secret("PLANE_WORKSPACE")
+        token = get_secret("PLANE_API_TOKEN")
+        if not all([url, workspace, token]):
+            console.print("[red]Missing Plane credentials in secrets.[/red]")  # type: ignore[union-attr]
+            raise typer.Exit(code=1)
+        result = probe_plane(url, workspace, token)  # type: ignore[arg-type]
+        status = "[green]OK[/green]" if result.ok else f"[red]FAILED: {result.detail}[/red]"
+        console.print(f"Plane probe: {status}")  # type: ignore[union-attr]
+    elif integration == "wikijs":
+        url = get_secret("WIKIJS_URL")
+        token = get_secret("WIKIJS_API_TOKEN")
+        if not all([url, token]):
+            console.print("[red]Missing Wiki.js credentials in secrets.[/red]")  # type: ignore[union-attr]
+            raise typer.Exit(code=1)
+        result = probe_wikijs(url, token)  # type: ignore[arg-type]
+        status = "[green]OK[/green]" if result.ok else f"[red]FAILED: {result.detail}[/red]"
+        console.print(f"Wiki.js probe: {status}")  # type: ignore[union-attr]
+    else:
+        console.print(f"[red]Unknown integration '{integration}'. Valid: plane, wikijs[/red]")  # type: ignore[union-attr]
+        raise typer.Exit(code=1)
 
 
 @app.command()

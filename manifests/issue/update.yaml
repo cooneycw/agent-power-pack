@@ -1,0 +1,40 @@
+name: update
+family: issue
+description: Update an existing Plane issue.
+triggers:
+  - /issue:update
+  - update issue
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: update_issue
+attribution: null
+order: 20
+prompt: |
+  # /issue:update — Update Issue
+
+  Update fields on an existing Plane issue.
+
+  ## Arguments
+
+  - `ISSUE` (required): issue number to update.
+  - `--title`: new title.
+  - `--description`: new description.
+  - `--priority`: new priority (urgent, high, medium, low, none).
+  - `--state`: new state name.
+  - `--assignee`: new assignee username.
+
+  ## Steps
+
+  1. Detect the active Plane workspace.
+  2. Call `plane.update_issue` with the changed fields.
+  3. Report the updated fields.
+
+  ## Error handling
+
+  - If the issue does not exist, report clearly.
+  - If Plane is unreachable, suggest reconfiguration.

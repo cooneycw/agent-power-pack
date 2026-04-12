@@ -1,0 +1,38 @@
+name: list
+family: issue
+description: List Plane issues with optional filters.
+triggers:
+  - /issue:list
+  - list issues
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: list_issues
+attribution: null
+order: 30
+prompt: |
+  # /issue:list — List Issues
+
+  List issues from the configured Plane workspace.
+
+  ## Arguments
+
+  - `--state`: filter by state (e.g. "In Progress", "Backlog").
+  - `--assignee`: filter by assignee username.
+  - `--priority`: filter by priority.
+  - `--limit`: max number of issues to return (default: 20).
+
+  ## Steps
+
+  1. Detect the active Plane workspace.
+  2. Call `plane.list_issues` with any filters.
+  3. Display results in a table: number, title, state, priority, assignee.
+
+  ## Error handling
+
+  - If Plane is unreachable, suggest reconfiguration.
+  - If no issues match, report "No issues found matching filters."
