@@ -70,7 +70,7 @@ exceeded:
 | `agents-md:lint` on a 500-line AGENTS.md w/ 50 make targets | < 2 s | `tests/perf/test_lint_time.py` |
 | MCP container cold start → 6 servers healthy | < 15 s | `tests/e2e/test_mcp_container_stdio.py::test_cold_start_budget` |
 | `grill-yourself` on a 5-file / 200-line PR | < 60 s | `tests/perf/test_grill_yourself.py` |
-| `cpp:init` end-to-end with Plane + Wiki.js skipped | < 10 s | `tests/integration/test_cpp_init_wizard.py` |
+| `app:init` end-to-end with Plane + Wiki.js skipped | < 10 s | `tests/integration/test_app_init_wizard.py` |
 
 **Rationale**: These numbers come from the equivalent flows in
 claude-power-pack (install ~15s, lint ~800ms) plus headroom for the
@@ -144,9 +144,9 @@ check catches upstream license changes before they land.
 - **Script that downloads on install** — network dependency at install
   time breaks offline developer machines.
 
-## 8. `cpp:init` connectivity-check design
+## 8. `app:init` connectivity-check design
 
-**Decision**: For each configured external tool, `cpp:init` makes ONE
+**Decision**: For each configured external tool, `app:init` makes ONE
 idempotent read-only call through the same secrets tier the runtime will
 use:
 - **Plane**: `GET /api/v1/workspaces/{slug}/` — expected 200; any other
@@ -158,7 +158,7 @@ use:
 
 Connectivity failures are recoverable: the wizard offers retry, edit
 credentials, or skip. Skip paths are recorded in the wizard's final report
-and surfaced in `cpp:init --status`.
+and surfaced in `app:init --status`.
 
 **Rationale**: Single read-only probes minimize side effects during
 onboarding. Routing through the same tier as runtime use verifies BOTH
@@ -204,11 +204,11 @@ FR-017 (checklist) and FR-018 (`cicd:init` gate).
 | Plane client | `httpx` + hand-written v1 REST client | `mcp_container/servers/plane/` |
 | Wiki.js client | `gql` + `httpx` GraphQL v2, `.graphql` files | `mcp_container/servers/wikijs/` |
 | MCP SDK | Official `mcp` Python SDK, in-process supervisor | `mcp_container/supervisor.py` |
-| Performance | 30s install / 2s lint / 15s cold start / 60s grill / 10s cpp:init | `tests/perf/` |
+| Performance | 30s install / 2s lint / 15s cold start / 60s grill / 10s app:init | `tests/perf/` |
 | Observability | `structlog` JSON to stdout, no metrics, no tracing (v0.1.0) | Every component |
 | Adapter interface | `install(manifests, target_dir, mode)` via entry points | `adapters/<runtime>/` |
 | Vendored skills | Subtree copy + VERSION file + license-match check | `vendor/skills/` + `make update-vendored-skills` |
-| `cpp:init` probe | Read-only call through runtime tier | `cpp_init/wizard.py` |
+| `app:init` probe | Read-only call through runtime tier | `app_init/wizard.py` |
 | Woodpecker checklist | Pure-function rules in a dict registry, dual mode | `cicd/woodpecker_checklist.py` |
 
 All NEEDS CLARIFICATION items resolved.

@@ -1,0 +1,206 @@
+# manifests/project/init.yaml
+#
+# Adapted from claude-power-pack .claude/commands/project/init.md (686 lines)
+# and our spec FR-015 / FR-016 / FR-016a / FR-015a.
+# Canonical command name: project:init. Alias: app:init.
+# Full scaffolder: zero to pushed-repo with AGENTS.md, generated per-runtime
+# instruction files, Makefile, compose.yaml, MCP container config, tiered
+# secrets layer, Plane + Wiki.js guided wizard, and initial spec.
+
+name: init
+family: project
+description: >-
+  Full project scaffolding: zero to pushed GitHub repo with AGENTS.md
+  (canonical), generated instruction files, Makefile, MCP container,
+  Plane + Wiki.js config wizard, and initial spec. Alias: app:init.
+triggers:
+  - /project:init
+  - /app:init
+  - project init
+  - app init
+  - bootstrap project
+  - scaffold project
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: list_workspaces
+  - server: wikijs
+    tool: list_pages
+attribution: null
+order: 10
+prompt: |
+  # /project:init (alias: /app:init) — Full Project Scaffolding
+
+  Create a new project from zero to pushed GitHub repo in one command.
+  Covers everything: directory structure, AGENTS.md canonical scaffold,
+  generated instruction files, Makefile, MCP container compose, secrets
+  layer, Plane + Wiki.js guided config, initial spec, and git push.
+
+  ## Arguments
+
+  - `PROJECT_NAME` (required): lowercase, starts with a letter, hyphens
+    allowed (e.g., `my-awesome-app`).
+
+  ## Step 1: Validate + create project directory
+
+  ```bash
+  PROJECT_NAME="$1"
+
+  if [[ ! "$PROJECT_NAME" =~ ^[a-z][a-z0-9-]*$ ]]; then
+      echo "ERROR: name must be lowercase, start with a letter, contain only [a-z0-9-]."
+      exit 1
+  fi
+
+  PROJECT_DIR="${HOME}/Projects/${PROJECT_NAME}"
+  if [[ -d "$PROJECT_DIR" ]]; then
+      echo "ERROR: $PROJECT_DIR already exists."
+      echo "Use 'app:init --here' to initialize inside an existing directory."
+      exit 1
+  fi
+
+  mkdir -p "$PROJECT_DIR"
+  cd "$PROJECT_DIR"
+  ```
+
+  ## Step 2: Detect runtime + framework
+
+  Ask the user (or auto-detect if they pass `--framework <X>`) which
+  framework template to use. Supported templates live at
+  `src/agent_power_pack/app_init/templates/`. At minimum:
+
+  - `python-uv` (default if uv is available)
+  - `python-pip`
+  - `node-npm`
+  - `node-yarn`
+  - `go`
+  - `rust`
+  - `generic` (no framework; just AGENTS.md + Makefile)
+
+  If the user passes no argument AND no framework is detectable, default
+  to `generic`.
+
+  ## Step 3: Scaffold project files
+
+  From the chosen template, create:
+
+  1. **`AGENTS.md`** — the canonical project instruction file with all
+     six required sections (CI/CD Protocol, Quality Gates, Troubleshooting,
+     Available Commands, Docker Conventions, Deployment) pre-populated
+     for the detected framework.
+  2. **`CLAUDE.md` / `GEMINI.md` / `.cursorrules`** — generated from
+     `AGENTS.md` by the instruction-file generator, with the canonical
+     `<!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->` header.
+  3. **`Makefile`** — framework-appropriate targets, MUST include at
+     minimum: `lint`, `test`, `verify`, `install`, `mcp-up`, `mcp-down`,
+     `update-vendored-skills`.
+  4. **`compose.yaml`** — MCP container + aws-secretsmanager-agent
+     sidecar definition, pre-configured with the correct port ranges
+     (8080–8085 stdio, 9100–9105 SSE, 2773 sidecar).
+  5. **`pyproject.toml`** (if Python) or equivalent project manifest.
+  6. **`.gitignore`** — sensible defaults for the framework, plus
+     `.venv/`, `.env`, `.specify/grills/`, `__pycache__/`.
+  7. **`LICENSE`** — MIT by default; ask user to confirm or override.
+  8. **`.specify/grill-triggers.yaml`** — with defaults
+     (`max_lines: 200`, `max_files: 5`).
+
+  ## Step 4: Initialize git and push to GitHub
+
+  ```bash
+  git init
+  git add -A
+  git commit -m "chore: scaffold ${PROJECT_NAME} via app:init
+
+  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+
+  gh repo create "$PROJECT_NAME" --public --source=. --remote=origin
+  git push -u origin main
+  ```
+
+  If the user passes `--private`, use `--private` instead.
+  If `gh auth status` fails, warn and skip the GH push step.
+
+  ## Step 5: Guided external-tool configuration (FR-016)
+
+  For each of **Plane** and **Wiki.js**, run the guided config wizard:
+
+  1. **Detect existing credentials** — check the tiered secrets layer
+     (sidecar → env-file → dotenv) for the tool's base URL and API
+     token.
+  2. **If absent, prompt** — ask for base URL, workspace/space slug,
+     and API token. Accept `--skip` to defer.
+  3. **Write to secrets layer** — store via the `DotenvTier` (dev
+     default). Never write credentials to plain files.
+  4. **One-shot connectivity check**:
+     - Plane: `GET /api/v1/workspaces/{slug}/` expecting 200.
+     - Wiki.js: GraphQL `{ pages { list(limit: 1) { id } } }`.
+     Report pass/fail. On failure: offer retry, edit creds, or skip.
+  5. **Record in AGENTS.md** — add an `## External Systems` section
+     naming the configured endpoints.
+
+  Skipped tools MUST be re-promptable via `app:init --reconfigure plane`
+  or `app:init --reconfigure wikijs`.
+
+  ## Step 6: Install the skill catalog
+
+  ```bash
+  make install RUNTIME=claude   # (or auto-detect)
+  ```
+
+  This transpiles the neutral manifests into the runtime's native
+  layout. If multiple runtimes are detected (e.g., both Claude Code and
+  Codex CLI are installed), install for each.
+
+  ## Step 7: Initial spec (mandatory)
+
+  If `specify` is on `PATH`, scaffold the spec-kit structure:
+
+  ```bash
+  specify init . --ai claude --force
+  ```
+
+  Then prompt the user to run `/speckit-constitution` to establish the
+  project's governing principles.
+
+  ## Step 8: Summary report
+
+  ```
+  Project scaffolded: ~/Projects/{PROJECT_NAME}
+
+    Framework:     {python-uv | node-npm | generic | ...}
+    AGENTS.md:     canonical (6 required sections)
+    Generated:     CLAUDE.md, GEMINI.md, .cursorrules
+    Makefile:      {N} targets
+    MCP container: compose.yaml (6 servers + sidecar)
+    Plane:         {configured (workspace: ...) | skipped}
+    Wiki.js:       {configured (space: ...) | skipped}
+    Skills:        {N} installed for {runtime}
+    Git:           pushed to github.com/{user}/{name}
+    Spec-kit:      initialized
+
+  Next steps:
+    1. cd ~/Projects/{PROJECT_NAME}
+    2. /speckit-constitution   — establish principles
+    3. /speckit-specify        — write the first spec
+    4. /flow:auto <N>          — start shipping
+  ```
+
+  ## Error handling
+
+  - **Directory exists**: STOP at Step 1 unless `--here` passed.
+  - **Invalid project name**: STOP with regex example.
+  - **`gh` not authenticated**: warn, skip GH push, leave repo local.
+  - **Connectivity check fails**: offer retry / edit / skip (FR-016).
+  - **`specify` not installed**: skip Step 7, suggest `uv tool install specify-cli`.
+  - **No runtime detected**: skip Step 6, warn.
+
+  ## Notes
+
+  - `project:init` = `app:init`. They are the same manifest (FR-015a).
+  - For a minimal scaffold WITHOUT Plane/Wiki.js/MCP/spec-kit, use
+    `project:lite` (`app:lite`) instead.
+  - `project:init --here` initializes the current directory instead of
+    creating a new one under `~/Projects/`.
