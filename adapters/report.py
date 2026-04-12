@@ -23,6 +23,7 @@ class InstallReport:
     files_written: list[Path] = field(default_factory=list)
     files_skipped: list[Path] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
+    duration_ms: int = 0
 
     @property
     def ok(self) -> bool:
