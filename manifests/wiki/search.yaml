@@ -1,0 +1,36 @@
+name: search
+family: wiki
+description: Search Wiki.js pages.
+triggers:
+  - /wiki:search
+  - search wiki
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: wikijs
+    tool: search_pages
+attribution: null
+order: 30
+prompt: |
+  # /wiki:search — Search Wiki
+
+  Search for pages in the configured Wiki.js instance.
+
+  ## Arguments
+
+  - `QUERY` (required): search query string.
+  - `--limit`: max results to return (default: 10).
+
+  ## Steps
+
+  1. Detect the Wiki.js instance.
+  2. Call `wikijs.search_pages` with the query.
+  3. Display results: title, path, excerpt.
+
+  ## Error handling
+
+  - If Wiki.js is unreachable, suggest reconfiguration.
+  - If no results found, report "No pages found matching '{query}'."

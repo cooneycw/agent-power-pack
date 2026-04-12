@@ -1,0 +1,37 @@
+name: help
+family: issue
+description: Show help for issue commands.
+triggers:
+  - /issue:help
+  - issue help
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 50
+prompt: |
+  # /issue:help — Issue Command Help
+
+  Available issue commands:
+
+  | Command | Description |
+  |---------|-------------|
+  | `/issue:create` | Create a new issue in Plane |
+  | `/issue:update` | Update an existing issue |
+  | `/issue:list` | List issues with optional filters |
+  | `/issue:close` | Close (mark as Done) an issue |
+  | `/issue:help` | Show this help |
+
+  ## Prerequisites
+
+  - Plane must be configured. Run `agent-power-pack init` to set up.
+  - The `plane` MCP server must be running (`make mcp-up`).
+
+  ## Examples
+
+  - `/issue:create "Fix login bug" --priority high`
+  - `/issue:list --state "In Progress"`
+  - `/issue:close 42`

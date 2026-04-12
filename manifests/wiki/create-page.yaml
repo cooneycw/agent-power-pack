@@ -1,0 +1,38 @@
+name: create-page
+family: wiki
+description: Create a new Wiki.js page.
+triggers:
+  - /wiki:create-page
+  - create wiki page
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: wikijs
+    tool: create_page
+attribution: null
+order: 10
+prompt: |
+  # /wiki:create-page — Create Wiki Page
+
+  Create a new page in the configured Wiki.js instance.
+
+  ## Arguments
+
+  - `PATH` (required): page path (e.g. "project/architecture").
+  - `TITLE` (required): page title.
+  - `--content`: page content in markdown (can be piped from stdin).
+  - `--tags`: comma-separated tags.
+
+  ## Steps
+
+  1. Detect the Wiki.js instance from AGENTS.md or secrets (`WIKIJS_URL`).
+  2. Call `wikijs.create_page` with path, title, content, and tags.
+  3. Report the created page URL.
+
+  ## Error handling
+
+  - If Wiki.js is unreachable, suggest `agent-power-pack init --reconfigure wikijs`.
+  - If the path already exists, report "Page already exists at {path}."
