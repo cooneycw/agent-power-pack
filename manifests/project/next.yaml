@@ -1,0 +1,184 @@
+# manifests/project/next.yaml
+#
+# Net-new skill defined in FR-020.
+# Canonical command: project:next. Alias: app:next.
+# Issue picker: queries the active issue backend and recommends the best
+# next issue to work on based on priority, blocked status, parallel
+# safety, and phase ordering.
+
+name: next
+family: project
+description: >-
+  Recommend the single best issue to work on next from the active
+  issue backend (Plane or GitHub). Factors in priority, unblocked
+  dependencies, parallel safety, and phase ordering. Alias: app:next.
+triggers:
+  - /project:next
+  - /app:next
+  - project next
+  - app next
+  - what should I work on
+  - next issue
+  - pick an issue
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: list_issues
+  - server: plane
+    tool: list_workspaces
+attribution: null
+order: 5
+prompt: |
+  # /project:next (alias: /app:next) — What Should I Work On?
+
+  Query the active issue backend and recommend the single best issue
+  to start next. The goal: eliminate the manual issue-tracker scan at
+  the top of every dogfood loop iteration.
+
+  ## Arguments
+
+  - `--top N` (optional): show the top N candidates instead of just
+    the single best. Default: 1.
+
+  ## Step 0: Detect issue backend
+
+  Same logic as `/flow:start` Step 0:
+
+  1. If `plane-mcp` responds to `list_workspaces` without error AND
+     `AGENTS.md` has an `External Systems` section referencing a Plane
+     workspace, use **Plane**. Fetch issues via `plane.list_issues`.
+  2. Otherwise, fall back to **GitHub Issues** via `gh issue list`.
+  3. If neither: STOP — "No issue backend configured."
+
+  Record the backend for all subsequent steps.
+
+  ## Step 1: Fetch open issues
+
+  - **Plane**: call `plane.list_issues` with
+    `workspace = <configured>`, `project = <configured>`,
+    `state = open`. Extract: `id`, `title`, `labels`, `priority`,
+    `blockedBy` (dependency links), `assignee`.
+  - **GitHub**: `gh issue list --state open --json number,title,labels,body --limit 200`.
+    Parse `labels` for `p1`/`p2`, `phase-N`, `parallel`, `usN`.
+    Parse the issue body for dependency fields (look for
+    `**Parallel**: yes/no` and `blockedBy` or dependency mentions).
+
+  If no open issues exist, report "No actionable issues found." and
+  stop.
+
+  ## Step 2: Determine blocked status
+
+  For each issue, check whether its dependencies are resolved:
+
+  - **Plane**: use the `blockedBy` link field. An issue is unblocked
+    if every linked issue in `blockedBy` has `state = closed` (or
+    done/completed equivalent).
+  - **GitHub**: look for a `blockedBy` line in the issue body (e.g.,
+    "Blocked by #42, #55"). Fetch the state of each referenced issue.
+    An issue is unblocked if ALL referenced issues are closed.
+
+  Mark each issue as `unblocked: true | false`.
+
+  ## Step 3: Check active worktrees
+
+  ```bash
+  ACTIVE_ISSUES=$(git worktree list --porcelain 2>/dev/null \
+    | grep "^branch " \
+    | sed 's|branch refs/heads/||' \
+    | grep -oP 'issue-\K[0-9]+' || true)
+  ```
+
+  If there is already an active worktree on another issue, prefer
+  issues labeled `parallel` (they can be worked concurrently without
+  blocking each other).
+
+  ## Step 4: Score and rank
+
+  For each open, unblocked issue, compute a score:
+
+  ```
+  score = priority_weight × parallel_bonus × phase_bonus
+  ```
+
+  Where:
+
+  | Factor | Value |
+  |--------|-------|
+  | `priority_weight` | `p1` = 10, `p2` = 5, unlabeled = 3 |
+  | `parallel_bonus` | 2× if the issue has `parallel` label AND the user has an active worktree. Otherwise 1×. |
+  | `phase_bonus` | `1 + (11 - phase_number) / 10`. Phase 1 gets 2.0×; Phase 11 gets 1.0×. Unlabeled phases default to 1.0×. |
+
+  Sort descending by score. Break ties by issue number (lower wins =
+  first-created, usually earlier in the plan).
+
+  ## Step 5: Output
+
+  For the top N (default 1):
+
+  ```
+  Recommended next issue:
+
+    #{issue}  {title}
+    Priority:    {p1 | p2 | —}
+    Phase:       {phase-N | —}
+    Parallel:    {yes | no}
+    Blocked by:  {none | #42, #55 (all closed)}
+    Score:       {computed score}
+    Rationale:   {one sentence: e.g., "Highest-priority unblocked P1 in
+                  Phase 2 (foundational); no worktree conflict."}
+
+    → /flow:start {issue_number}
+  ```
+
+  If `--top N` is set and N > 1, list all N in a table:
+
+  ```markdown
+  | Rank | Issue | Title | Priority | Phase | Parallel | Score | Rationale |
+  |------|-------|-------|----------|-------|----------|-------|-----------|
+  | 1 | #{N} | ... | p1 | 2 | yes | 40.0 | ... |
+  | 2 | #{N} | ... | p1 | 3 | no | 20.0 | ... |
+  | 3 | #{N} | ... | p2 | 2 | yes | 20.0 | ... |
+  ```
+
+  End with:
+
+  ```
+  To start the top pick: /flow:start {top_issue_number}
+  ```
+
+  ## Step 6: Handle edge cases
+
+  - **All open issues are blocked**: report "All {N} open issues are
+    currently blocked by unresolved dependencies. Here are the
+    blockers:" and list the unique set of blocking issues (which are
+    likely in progress on active worktrees or need manual unblocking).
+  - **User already has a worktree for the top pick**: report "You
+    already have a worktree for #{N}. Use `cd` to switch, or pick the
+    next candidate: /flow:start #{second_pick}".
+  - **No `tasks.md` synced issues** (labels missing): fall back to
+    sorting by issue number ascending. Warn: "No `phase-N` or `p1/p2`
+    labels detected — falling back to issue-number order. Consider
+    syncing tasks.md to issues with labels."
+
+  ## Error handling
+
+  - **No issue backend**: STOP, suggest `app:init --reconfigure`.
+  - **No open issues**: "No actionable issues found."
+  - **GitHub API rate limit**: report the limit reset time.
+  - **Plane unreachable**: fall back to GitHub (if git remote is GH),
+    otherwise STOP.
+
+  ## Notes
+
+  - `project:next` = `app:next`. Same manifest (FR-020 + FR-015a).
+  - This skill is read-only: it never modifies issues, creates
+    branches, or writes files.
+  - The scoring formula is deliberately simple and transparent. If a
+    user disagrees with the recommendation, they can just run
+    `/flow:start <their_pick>` directly.
+  - `app:next` is the natural entry point to the dogfood loop defined
+    in `README.md`. Call it at the top of every work session.

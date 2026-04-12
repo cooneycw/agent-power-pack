@@ -2,7 +2,7 @@
 
 First-run walkthrough for a developer bringing agent-power-pack up on a
 fresh machine. Mirrors the acceptance flow used by
-`tests/e2e/test_dual_attach.py` and `tests/integration/test_cpp_init_wizard.py`.
+`tests/e2e/test_dual_attach.py` and `tests/integration/test_app_init_wizard.py`.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ fresh machine. Mirrors the acceptance flow used by
 - Docker Engine 24+ with Compose v2
 - `git`
 - A reachable Plane instance and Wiki.js instance (or `--skip` both
-  during `cpp:init`)
+  during `app:init`)
 - At least one AI agent runtime installed:
   - Claude Code CLI, **or**
   - Codex CLI, **or**
@@ -97,7 +97,7 @@ Run the two install commands in any order. Both adapters are idempotent
 and stay in their own runtime directories (Principle III enforcement in
 the adapter interface contract).
 
-## 5. Bootstrap a NEW project with `cpp:init`
+## 5. Bootstrap a NEW project with `app:init`
 
 From another directory:
 
@@ -198,7 +198,7 @@ real MCP containers via `testcontainers`, so Docker must be running.
 - **`make mcp-up` exceeds the 15s cold-start budget** — the first build
   can take several minutes because it pulls the Playwright Jammy base
   image (~1.5 GB). The 15s budget applies to warm starts only.
-- **`cpp:init` connectivity check fails for Plane** — the wizard
+- **`app:init` connectivity check fails for Plane** — the wizard
   prints the HTTP status and first 200 bytes of the response. Most
   common cause: wrong workspace slug. Re-run with `--reconfigure plane`.
 - **`agents-md:lint` reports a generated file is out of sync after a

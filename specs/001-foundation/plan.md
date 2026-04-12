@@ -12,7 +12,7 @@ foundation ships a single multi-transport MCP container hosting
 `second-opinion`, `plane`, `wikijs`, `nano-banana`, `playwright`, and
 `woodpecker` servers alongside the Rust-based `aws-secretsmanager-agent`
 sidecar; an `agents-md:lint` quality gate enforcing AGENTS.md as canonical
-with CLAUDE.md/GEMINI.md/.cursorrules as generated outputs; a `cpp:init`
+with CLAUDE.md/GEMINI.md/.cursorrules as generated outputs; a `app:init`
 guided bootstrap that wires Plane and Wiki.js through a tiered secrets
 layer; and the `grill-me` (vendored from mattpocock/skills with full
 attribution) plus `grill-yourself` skills, with `grill-yourself` auto-firing
@@ -21,13 +21,13 @@ as a `/flow:finish` gate when a PR diff exceeds configurable thresholds.
 ## Technical Context
 
 **Language/Version**: Python 3.11+ for adapters, linter, MCP server host,
-  and `cpp:init`. Rust (pinned via upstream release) for the
+  and `app:init`. Rust (pinned via upstream release) for the
   `aws-secretsmanager-agent` sidecar only — consumed as a pre-built binary,
   not rebuilt here.
 **Primary Dependencies**: `uv` (workspace + tool install), `ruamel.yaml`
   (YAML parser preserving comments/ordering for manifest round-trips),
   `pydantic` (manifest + lint result schemas), `typer` (CLI layer for
-  adapters/linter/cpp:init), `rich` (terminal UX), `mcp` Python SDK (MCP
+  adapters/linter/app:init), `rich` (terminal UX), `mcp` Python SDK (MCP
   server host), `httpx` (Plane + Wiki.js REST clients), `docker` +
   `docker-compose` v2 (local orchestration).
 **Storage**: No application database. Manifests live in `manifests/` as
@@ -44,7 +44,7 @@ as a `/flow:finish` gate when a PR diff exceeds configurable thresholds.
   for v0.1.0.
 **Project Type**: Multi-component Python monorepo. Components: `adapters/`,
   `manifests/`, `linter/` (under `src/agent_power_pack/linter/`),
-  `mcp_container/`, `cpp_init/`, `vendor/skills/`, `tests/`. Single `uv`
+  `mcp_container/`, `app_init/`, `vendor/skills/`, `tests/`. Single `uv`
   workspace.
 **Performance Goals**:
   - `make install RUNTIME=<x>` completes in <30s on a warm cache.
@@ -132,7 +132,7 @@ agent-power-pack/
 │   ├── second-opinion/
 │   ├── issue/           (Plane-backed, replaces github-issue-*)
 │   ├── wiki/            (Wiki.js-backed)
-│   ├── project/         (cpp:init and friends)
+│   ├── project/         (app:init and friends)
 │   └── grill/
 │       ├── me.yaml      # Wrapper manifest around vendored skill
 │       └── yourself.yaml
@@ -165,7 +165,7 @@ agent-power-pack/
 │       │   ├── repo_check.py          # (b) referenced Make/Docker/CI artifacts exist
 │       │   └── generated_check.py     # (c) CLAUDE.md etc. in sync
 │       ├── generator/                 # AGENTS.md → per-runtime file generators
-│       ├── cpp_init/                  # Project bootstrap (FR-015/016/016a)
+│       ├── app_init/                  # Project bootstrap (FR-015/016/016a)
 │       │   ├── wizard.py              # Plane + Wiki.js guided config
 │       │   └── templates/             # Starter AGENTS.md / Makefile / compose.yaml
 │       ├── secrets/                   # Tiered secrets layer (FR-016a)
@@ -200,7 +200,7 @@ agent-power-pack/
     ├── integration/
     │   ├── test_adapter_claude.py     # Golden-file: manifests → .claude/skills/
     │   ├── test_adapter_codex.py      # Golden-file: manifests → .codex/skills/
-    │   └── test_cpp_init_wizard.py
+    │   └── test_app_init_wizard.py
     └── e2e/
         ├── test_mcp_container_stdio.py   # testcontainers
         ├── test_mcp_container_sse.py     # testcontainers
@@ -210,7 +210,7 @@ agent-power-pack/
 **Structure Decision**: Multi-component Python monorepo under a single `uv`
 workspace. `manifests/` is the source of truth authored by humans;
 `adapters/` transpile it per runtime. `src/agent_power_pack/` holds all
-installable Python code (linter, generator, cpp:init, grill, secrets).
+installable Python code (linter, generator, app:init, grill, secrets).
 `mcp_container/` is the container build context and is NOT installed as a
 Python package on developer machines — it's built and run via
 `compose.yaml`. `vendor/skills/` is gitignored from `src/` and loaded by the

@@ -1,0 +1,214 @@
+# manifests/project/lite.yaml
+#
+# Net-new skill defined in FR-019.
+# Canonical command: project:lite. Alias: app:lite.
+# Reduced scaffold: AGENTS.md + generated instruction files + stub
+# Makefile. No MCP container, no Plane/Wiki.js wizard, no spec-kit.
+
+name: lite
+family: project
+description: >-
+  Lightweight project bootstrap: AGENTS.md (canonical) + generated
+  instruction files + stub Makefile with lint/test/verify. No MCP
+  container, no Plane/Wiki.js, no spec-kit ceremony. Alias: app:lite.
+triggers:
+  - /project:lite
+  - /app:lite
+  - project lite
+  - app lite
+  - quick scaffold
+  - minimal scaffold
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 15
+prompt: |
+  # /project:lite (alias: /app:lite) — Minimal Project Bootstrap
+
+  Scaffold a project with just the AGENTS.md lint discipline and nothing
+  else. For small scripts, POCs, personal utilities, and any project
+  that doesn't need the full MCP container, Plane, Wiki.js, or
+  spec-kit workflow.
+
+  ## Arguments
+
+  - `PROJECT_NAME` (required): name of the project. Same validation as
+    `project:init` (lowercase, starts with a letter, hyphens allowed).
+  - `--here` (optional): initialize the current directory instead of
+    creating `~/Projects/<name>`.
+
+  ## Step 1: Create project directory
+
+  ```bash
+  PROJECT_NAME="$1"
+
+  if [[ ! "$PROJECT_NAME" =~ ^[a-z][a-z0-9-]*$ ]]; then
+      echo "ERROR: name must be lowercase, start with a letter, contain only [a-z0-9-]."
+      exit 1
+  fi
+
+  if [[ "${2:-}" == "--here" ]]; then
+      PROJECT_DIR="$(pwd)"
+  else
+      PROJECT_DIR="${HOME}/Projects/${PROJECT_NAME}"
+      if [[ -d "$PROJECT_DIR" ]]; then
+          echo "ERROR: $PROJECT_DIR already exists."
+          exit 1
+      fi
+      mkdir -p "$PROJECT_DIR"
+  fi
+  cd "$PROJECT_DIR"
+  ```
+
+  ## Step 2: Scaffold AGENTS.md
+
+  Write a minimal `AGENTS.md` at the project root containing exactly
+  the six required sections — each pre-filled with starter content:
+
+  ```markdown
+  # {PROJECT_NAME} Development Guidelines
+
+  ## CI/CD Protocol
+
+  All CI operations run through `make` targets. Do not run build or
+  deploy commands outside of Make.
+
+  ## Quality Gates
+
+  - `make lint` must pass before any commit.
+  - `make test` must pass before any PR.
+  - `make verify` chains lint + test.
+
+  ## Troubleshooting
+
+  - If lint fails, check the output for the specific rule and file.
+  - If tests fail, run the failing test in isolation first.
+
+  ## Available Commands
+
+  | Command | Description |
+  |---------|-------------|
+  | `make lint` | Run linter |
+  | `make test` | Run test suite |
+  | `make verify` | Run lint + test |
+
+  ## Docker Conventions
+
+  No Docker configuration in this project. If containers are needed
+  later, use `project:init` to scaffold the full MCP stack.
+
+  ## Deployment
+
+  No deployment configuration. Add a `deploy` target to the Makefile
+  when ready.
+  ```
+
+  ## Step 3: Generate per-runtime instruction files
+
+  If `agent-power-pack` is on `PATH`:
+
+  ```bash
+  agent-power-pack generate
+  ```
+
+  Otherwise, generate manually by copying `AGENTS.md` content into
+  `CLAUDE.md`, `GEMINI.md`, and `.cursorrules` with the canonical
+  `<!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->` header prepended.
+
+  ## Step 4: Write stub Makefile
+
+  Write a minimal `Makefile` with three targets:
+
+  ```makefile
+  .DEFAULT_GOAL := verify
+
+  lint:
+  	@echo "No linter configured yet. Add your lint command here."
+
+  test:
+  	@echo "No tests configured yet. Add your test command here."
+
+  verify: lint test
+  ```
+
+  The user fills in real commands as the project grows. The targets
+  MUST exist so `AGENTS.md` references validate under `agents-md:lint`.
+
+  ## Step 5: Write .gitignore + LICENSE
+
+  - `.gitignore`: `.venv/`, `__pycache__/`, `.env`, `.mypy_cache/`,
+    `.pytest_cache/`, `*.pyc`.
+  - `LICENSE`: MIT, filled with the current year and the git user name.
+
+  ## Step 6: Initialize git
+
+  ```bash
+  git init
+  git add -A
+  git commit -m "chore: scaffold ${PROJECT_NAME} via app:lite
+
+  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+  ```
+
+  Do NOT push to GitHub or create a remote. The user can do that
+  later with `gh repo create` or via `project:init --here` to upgrade
+  to the full scaffold.
+
+  ## Step 7: Run agents-md:lint (validation)
+
+  ```bash
+  if command -v agent-power-pack >/dev/null 2>&1; then
+      agent-power-pack lint agents-md
+  fi
+  ```
+
+  If the lint fails (unexpected on a fresh scaffold), report the
+  failure. This is a self-test that the scaffold is clean.
+
+  ## Step 8: Report
+
+  ```
+  Project scaffolded (lite): ~/Projects/{PROJECT_NAME}
+
+    AGENTS.md:   canonical (6 required sections)
+    Generated:   CLAUDE.md, GEMINI.md, .cursorrules
+    Makefile:    lint, test, verify (stubs)
+    Git:         initialized (local only, no remote)
+    Lint:        {pass | agent-power-pack not installed — skipped}
+
+    Upgrade to full scaffold:
+      cd ~/Projects/{PROJECT_NAME}
+      /project:init --here
+  ```
+
+  ## What project:lite does NOT do
+
+  - No MCP container or `compose.yaml` (use `project:init` for that).
+  - No Plane or Wiki.js configuration wizard.
+  - No secrets layer setup.
+  - No spec-kit `.specify/` directory.
+  - No GitHub remote push.
+  - No framework detection or pyproject.toml/package.json generation.
+
+  The point is speed: from zero to a lint-disciplined repo in < 5
+  seconds.
+
+  ## Error handling
+
+  - **Directory exists**: STOP unless `--here`.
+  - **Invalid name**: STOP with example.
+  - **`agent-power-pack` not on PATH**: skip lint check, note in report.
+
+  ## Notes
+
+  - `project:lite` scaffolded projects can be upgraded to `project:init`
+    at any time by running `/project:init --here` in the directory.
+    The `--here` flag detects the existing `AGENTS.md` and skips
+    re-scaffolding it; it only adds the missing pieces (MCP container,
+    Plane/Wiki.js wizard, spec-kit, `compose.yaml`, etc.).
+  - `project:lite` = `app:lite`. They are the same manifest (FR-019 +
+    FR-015a alias convention).
