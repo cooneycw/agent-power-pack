@@ -1,0 +1,172 @@
+# manifests/agents-md/lint.yaml
+#
+# Linter for the AGENTS.md canonical instruction file (spec FR-004).
+# Verifies required sections, referenced Make targets / Docker services /
+# CI files exist, and generated instruction files (CLAUDE.md, GEMINI.md,
+# .cursorrules) are in sync. Hand-edits to generated files are reverted.
+
+name: lint
+family: agents-md
+description: >-
+  Lint AGENTS.md: verify required sections, referenced targets, and
+  generated instruction-file freshness. Revert stale generated files.
+triggers:
+  - /agents-md:lint
+  - agents-md lint
+  - lint agents-md
+  - lint agents md
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 10
+prompt: |
+  # /agents-md:lint — Lint the Canonical AGENTS.md
+
+  Validate that `AGENTS.md` is well-formed and that all generated
+  instruction files are in sync. Exit non-zero on any failure.
+
+  ## Arguments
+
+  - `--json`  (optional): output structured `LintResult` JSON instead of
+    human-readable text.
+  - `--fix`   (optional): auto-fix what can be fixed (regenerate stale
+    generated files) instead of just reporting.
+
+  ## Step 1: Locate AGENTS.md
+
+  Look for `AGENTS.md` in the repository root (via `git rev-parse
+  --show-toplevel`). If it does not exist, FAIL immediately:
+
+  ```
+  FAIL  schema.canonical_exists — AGENTS.md not found at repo root
+  ```
+
+  ## Step 2: Required sections check (rule: schema.required_section)
+
+  AGENTS.md MUST contain all six required H2 sections:
+
+  1. `## CI/CD Protocol`
+  2. `## Quality Gates`
+  3. `## Troubleshooting`
+  4. `## Available Commands`
+  5. `## Docker Conventions`
+  6. `## Deployment`
+
+  For each missing section, emit:
+
+  ```
+  FAIL  schema.required_section — missing "## {Section Name}"
+        subject: {Section Name}
+  ```
+
+  Sections may appear in any order. Additional sections are allowed.
+
+  ## Step 3: Referenced Make targets (rule: repo.make_target_exists)
+
+  Parse `AGENTS.md` for backtick-quoted `make <target>` references.
+  For each, verify `<target>:` exists as a rule in `Makefile` (or
+  `GNUmakefile` / `makefile`).
+
+  ```
+  FAIL  repo.make_target_exists — `make verify` referenced but target not found in Makefile
+        subject: verify
+  ```
+
+  If no Makefile exists, WARN (not FAIL) for all targets:
+
+  ```
+  WARN  repo.make_target_exists — no Makefile found; cannot verify targets
+  ```
+
+  ## Step 4: Referenced Docker services (rule: repo.docker_service_exists)
+
+  Parse for references to Docker Compose service names (pattern:
+  `docker compose ... <service>` or listed under `## Docker Conventions`).
+  Verify each service exists in `compose.yaml` / `docker-compose.yml`.
+
+  ```
+  FAIL  repo.docker_service_exists — service "mcp" referenced but not in compose.yaml
+        subject: mcp
+  ```
+
+  If no compose file exists, skip this check silently.
+
+  ## Step 5: Referenced CI files (rule: repo.ci_file_exists)
+
+  Parse for references to CI configuration files (e.g.,
+  `.woodpecker.yml`, `.github/workflows/*.yml`). Verify each exists.
+
+  ```
+  FAIL  repo.ci_file_exists — ".woodpecker.yml" referenced but file not found
+        subject: .woodpecker.yml
+  ```
+
+  ## Step 6: Generated file freshness (rule: generated.in_sync)
+
+  For each generated file (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`):
+
+  1. If the file does not exist, skip (not an error — the file may not
+     have been generated yet).
+  2. If the file exists, verify it starts with the canonical header:
+     `<!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->`
+     (or the equivalent comment syntax for `.cursorrules`).
+  3. If the file exists AND has been hand-edited (header missing or
+     content hash mismatches the expected generation from AGENTS.md):
+     - **Without `--fix`**: FAIL with:
+       ```
+       FAIL  generated.in_sync — CLAUDE.md has been hand-edited; edits will be lost
+             subject: CLAUDE.md
+       ```
+     - **With `--fix`**: regenerate the file from AGENTS.md, revert the
+       hand-edit, and WARN:
+       ```
+       WARN  generated.in_sync — CLAUDE.md was stale; regenerated from AGENTS.md
+             subject: CLAUDE.md
+       ```
+
+  ## Step 7: Emit result
+
+  Collect all check results into a `LintResult`:
+
+  ```json
+  {
+    "status": "pass" | "fail",
+    "checks": [
+      {
+        "rule_id": "schema.required_section",
+        "status": "pass" | "fail" | "warn",
+        "message": "...",
+        "subject": "..." | null
+      }
+    ],
+    "duration_ms": 42
+  }
+  ```
+
+  - **`--json` mode**: print the JSON to stdout.
+  - **Default (human) mode**: print each check as one line:
+    ```
+    PASS  schema.required_section — all 6 required sections present
+    PASS  repo.make_target_exists — 4/4 targets verified
+    FAIL  generated.in_sync — CLAUDE.md has been hand-edited
+    ```
+    End with a summary: `agents-md:lint — {N} checks, {P} passed, {F} failed, {W} warnings`
+
+  Exit code: `0` if `status == "pass"`, `1` if `status == "fail"`.
+
+  ## Error handling
+
+  - **AGENTS.md missing**: immediate FAIL, no further checks.
+  - **Makefile / compose file missing**: degrade gracefully (warn or skip).
+  - **Parse errors**: warn about unparseable references, continue.
+
+  ## Notes
+
+  - Performance target: < 2 seconds on a 500-line AGENTS.md with 50 Make
+    targets (spec SC-003, research.md benchmark).
+  - This skill is called by `flow:auto` Step 5 and `flow:check`.
+  - The `--json` output conforms to `contracts/agents-md-lint.result.schema.json`.
