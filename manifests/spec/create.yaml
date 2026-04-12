@@ -1,0 +1,101 @@
+name: create
+family: spec
+description: >-
+  Create a new feature specification using the spec-kit workflow,
+  producing a structured spec document with acceptance criteria.
+triggers:
+  - /spec:create
+  - spec create
+  - create spec
+  - new spec
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 10
+prompt: |
+  # /spec:create — Create Feature Specification
+
+  Author a structured feature specification using the spec-kit workflow.
+  The spec is written to `.specify/specs/<id>/spec.md` and optionally
+  synced to Plane and Wiki.js via `/spec:sync`.
+
+  ## Arguments
+
+  - `NAME` (required): short kebab-case name for the spec (e.g.,
+    `user-auth-flow`).
+  - `--id` (optional): numeric spec ID. If omitted, auto-increment from
+    the highest existing ID in `.specify/specs/`.
+
+  ## Step 1: Validate spec-kit is initialized
+
+  Check that `.specify/` exists and contains `memory/constitution.md`.
+  If not, suggest running `/project:init` or `specify init`.
+
+  ## Step 2: Create spec directory
+
+  ```bash
+  SPEC_ID="${ID:-$(ls -d .specify/specs/*/  2>/dev/null | wc -l | xargs expr 1 +)}"
+  SPEC_DIR=".specify/specs/$(printf '%03d' "$SPEC_ID")-${NAME}"
+  mkdir -p "$SPEC_DIR"
+  ```
+
+  ## Step 3: Gather requirements
+
+  Interview the user to capture:
+
+  1. **Problem statement**: what problem does this solve?
+  2. **User stories**: who benefits and how?
+  3. **Acceptance criteria**: measurable conditions for done.
+  4. **Non-goals**: what is explicitly out of scope?
+  5. **Dependencies**: what must exist first?
+
+  ## Step 4: Write spec.md
+
+  Write `${SPEC_DIR}/spec.md` using the template:
+
+  ```markdown
+  # Spec {SPEC_ID}: {TITLE}
+
+  ## Problem Statement
+  {gathered from Step 3}
+
+  ## User Stories
+  {gathered from Step 3}
+
+  ## Acceptance Criteria
+  {gathered from Step 3}
+
+  ## Non-Goals
+  {gathered from Step 3}
+
+  ## Dependencies
+  {gathered from Step 3}
+
+  ## Open Questions
+  {any unresolved items}
+  ```
+
+  ## Step 5: Report
+
+  ```
+  Spec created: {SPEC_DIR}/spec.md
+
+    ID:       {SPEC_ID}
+    Name:     {NAME}
+    Sections: 6
+
+  Next steps:
+    1. Review and refine the spec
+    2. /spec:sync — mirror to Plane + Wiki.js
+    3. /flow:auto {ISSUE} — start implementation
+  ```
+
+  ## Error handling
+
+  - **`.specify/` missing**: suggest initialization.
+  - **Spec ID collision**: increment and retry.
+  - **Invalid name**: must match `^[a-z][a-z0-9-]*$`.

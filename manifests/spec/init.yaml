@@ -1,0 +1,91 @@
+name: init
+family: spec
+description: >-
+  Initialize the spec-kit directory structure and constitution for
+  a project. Wrapper around `specify init`.
+triggers:
+  - /spec:init
+  - spec init
+  - initialize specs
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 5
+prompt: |
+  # /spec:init — Initialize Spec-Kit
+
+  Set up the `.specify/` directory structure and governing constitution
+  for the current project. This is a convenience wrapper around
+  `specify init` with agent-power-pack defaults.
+
+  ## Arguments
+
+  - `--ai` (optional): AI provider for spec-kit. Default: `claude`.
+  - `--force` (optional): re-initialize even if `.specify/` exists.
+
+  ## Step 1: Check prerequisites
+
+  1. Verify we are in a git repository root.
+  2. Check if `specify` is on `PATH`. If not, suggest:
+     `uv tool install specify-cli`
+
+  ## Step 2: Check existing state
+
+  If `.specify/` already exists and `--force` is not set:
+
+  ```
+  Spec-kit already initialized at .specify/
+  Use --force to re-initialize (existing specs are preserved).
+  ```
+
+  ## Step 3: Initialize
+
+  ```bash
+  specify init . --ai "${AI:-claude}" ${FORCE:+--force}
+  ```
+
+  This creates:
+  - `.specify/memory/constitution.md`
+  - `.specify/specs/` directory
+  - `.specify/grills/` directory (for grill transcripts)
+  - `.specify/extensions/` directory
+
+  ## Step 4: Create grill triggers config
+
+  If `.specify/grill-triggers.yaml` does not exist, create it with
+  defaults:
+
+  ```yaml
+  max_lines: 200
+  max_files: 5
+  triggers:
+    - on: pre-commit
+      depth: quick
+    - on: pre-push
+      depth: deep
+  ```
+
+  ## Step 5: Report
+
+  ```
+  Spec-kit initialized: .specify/
+
+    Constitution: .specify/memory/constitution.md
+    Specs dir:    .specify/specs/
+    Grills dir:   .specify/grills/
+    AI provider:  {claude | openai | ...}
+
+  Next steps:
+    1. /spec:create — write your first spec
+    2. /spec:sync   — mirror to Plane + Wiki.js
+  ```
+
+  ## Error handling
+
+  - **Not a git repo**: STOP with error.
+  - **`specify` not installed**: STOP with install instructions.
+  - **Already initialized without `--force`**: report, do not overwrite.

@@ -1,0 +1,60 @@
+name: health
+family: cicd
+description: >-
+  Check the health and connectivity of the Woodpecker CI server
+  and report its version and status.
+triggers:
+  - /cicd:health
+  - cicd health
+  - woodpecker health
+  - ci status
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: health_check
+attribution: null
+order: 30
+prompt: |
+  # /cicd:health — CI Server Health Check
+
+  Verify connectivity to the Woodpecker CI server and report its
+  status, version, and registered repositories.
+
+  ## Arguments
+
+  None.
+
+  ## Step 1: Check Woodpecker server health
+
+  Call `woodpecker.health_check` to verify the server is reachable.
+
+  ## Step 2: List registered repos
+
+  Call `woodpecker.list_repos` to get the count and names of
+  registered repositories.
+
+  ## Step 3: Report
+
+  ```
+  Woodpecker CI Health
+
+    Server:   {url}
+    Status:   healthy | unreachable
+    Version:  {version}
+    Repos:    {N} registered
+
+  Current repo: {registered | not registered}
+  ```
+
+  If the current repository is not registered in Woodpecker, suggest
+  how to add it.
+
+  ## Error handling
+
+  - **Server unreachable**: report the error and suggest checking
+    the server URL and network (Tailscale if applicable).
+  - **MCP server not running**: suggest `make mcp-up`.

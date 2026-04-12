@@ -1,0 +1,98 @@
+name: explain
+family: security
+description: >-
+  Explain a specific security finding, CVE, or vulnerability in
+  plain language with remediation guidance.
+triggers:
+  - /security:explain
+  - security explain
+  - explain cve
+  - explain vulnerability
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 40
+prompt: |
+  # /security:explain — Explain Security Finding
+
+  Given a CVE ID, security tool finding, or vulnerability description,
+  explain it in plain language and provide actionable remediation steps.
+
+  ## Arguments
+
+  - `FINDING` (required): a CVE ID (e.g., `CVE-2023-12345`), a tool
+    finding ID (e.g., `B608`), or a description of the vulnerability.
+  - `--context` (optional): path to the affected file for
+    context-specific guidance.
+
+  ## Step 1: Identify the finding
+
+  Parse the input to determine the type:
+
+  - **CVE ID**: look up the CVE details.
+  - **Bandit/SAST rule**: explain the rule and its implications.
+  - **General description**: analyze and categorize.
+
+  ## Step 2: Explain in plain language
+
+  Provide:
+
+  1. **What it is**: one-sentence summary.
+  2. **Why it matters**: potential impact if exploited.
+  3. **How it works**: brief technical explanation of the attack vector.
+  4. **Severity**: critical / high / medium / low with justification.
+
+  ## Step 3: Show the vulnerable pattern
+
+  If `--context` is provided, read the file and identify the specific
+  vulnerable code pattern. Show a before/after:
+
+  ```python
+  # VULNERABLE (before)
+  query = f"SELECT * FROM users WHERE id = {user_id}"
+
+  # FIXED (after)
+  query = "SELECT * FROM users WHERE id = ?"
+  cursor.execute(query, (user_id,))
+  ```
+
+  ## Step 4: Remediation steps
+
+  Provide numbered steps to fix the issue:
+
+  1. What to change in the code.
+  2. What dependency to upgrade (if applicable).
+  3. What configuration to update.
+  4. How to verify the fix.
+
+  ## Step 5: Report
+
+  ```
+  Security Finding: {ID or title}
+
+  Summary:   {one-sentence explanation}
+  Severity:  {level}
+  Impact:    {what could happen}
+
+  Vulnerable pattern:
+    {code snippet}
+
+  Fix:
+    {code snippet}
+
+  Steps:
+    1. {action}
+    2. {action}
+    3. Verify: /security:quick
+  ```
+
+  ## Error handling
+
+  - **Unknown CVE**: report that the CVE was not found and suggest
+    checking the ID.
+  - **No context file**: provide generic guidance without file-specific
+    examples.

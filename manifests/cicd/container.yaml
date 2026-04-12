@@ -1,0 +1,80 @@
+name: container
+family: cicd
+description: >-
+  Build, test, and push the MCP container image used by the project's
+  CI pipeline steps.
+triggers:
+  - /cicd:container
+  - cicd container
+  - build container
+  - build mcp image
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 60
+prompt: |
+  # /cicd:container — Build & Push MCP Container
+
+  Build the project's MCP container image, run a health check, and
+  optionally push it to the configured registry.
+
+  ## Arguments
+
+  - `--push` (optional): push to registry after building.
+  - `--tag` (optional): image tag. Default: `latest` and git SHA.
+  - `--registry` (optional): registry URL. Auto-detected from
+    `compose.yaml` if omitted.
+
+  ## Step 1: Locate Dockerfile
+
+  Check for `mcp_container/Dockerfile` or `Dockerfile` at the repo
+  root. If not found, check `compose.yaml` for build context paths.
+
+  ## Step 2: Build
+
+  ```bash
+  docker compose build mcp
+  ```
+
+  Or, if building standalone:
+
+  ```bash
+  docker build -t "${REGISTRY}/${IMAGE}:${TAG}" .
+  ```
+
+  ## Step 3: Health check
+
+  ```bash
+  docker compose up -d mcp
+  sleep 3
+  curl -sf http://localhost:8080/healthz || echo "WARN: healthz failed"
+  docker compose down mcp
+  ```
+
+  ## Step 4: Push (if --push)
+
+  ```bash
+  docker push "${REGISTRY}/${IMAGE}:${TAG}"
+  docker push "${REGISTRY}/${IMAGE}:${SHA}"
+  ```
+
+  ## Step 5: Report
+
+  ```
+  Container built: {image}:{tag}
+
+    Size:    {size}
+    Health:  {pass | fail}
+    Pushed:  {yes — {registry} | no (use --push)}
+  ```
+
+  ## Error handling
+
+  - **No Dockerfile**: STOP with guidance to scaffold via `/project:init`.
+  - **Build failure**: show the build output and suggest fixes.
+  - **Health check failure**: warn but do not block push.
+  - **Registry auth failure**: suggest `docker login`.

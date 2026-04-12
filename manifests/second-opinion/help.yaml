@@ -1,0 +1,84 @@
+name: help
+family: second-opinion
+description: >-
+  Explain the second-opinion system: what it does, how to configure
+  backends, and available commands.
+triggers:
+  - /second-opinion:help
+  - second-opinion help
+  - help second-opinion
+  - what is second opinion
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 99
+prompt: |
+  # /second-opinion:help — Second Opinion Overview
+
+  Print a guide to the second-opinion external code review system.
+
+  ## Output
+
+  ```markdown
+  # Second Opinion — External Code Review
+
+  ## What is it?
+
+  The second-opinion system sends your code to a DIFFERENT LLM for
+  review, providing an independent perspective. If you're using
+  Claude Code, the reviewer might be GPT-4o or Gemini. If you're
+  using Codex CLI, it might be Claude or Gemini. The point is
+  diversity of perspective.
+
+  ## Available commands
+
+  | Command                    | Description                          |
+  |----------------------------|--------------------------------------|
+  | `/second-opinion:start`    | Submit code for external review      |
+  | `/second-opinion:models`   | List available backends and status   |
+  | `/second-opinion:grill-plan` | Stress-test a plan via external LLM |
+  | `/second-opinion:help`     | Show this help text                  |
+
+  ## Supported backends
+
+  | Backend    | Model              | Key variable       |
+  |------------|--------------------|--------------------|
+  | openai     | GPT-4o (default)   | OPENAI_API_KEY     |
+  | gemini     | Gemini Pro         | GEMINI_API_KEY     |
+  | anthropic  | Claude             | ANTHROPIC_API_KEY  |
+  | o4-mini    | O4 Mini            | OPENAI_API_KEY     |
+
+  ## Setup
+
+  1. Ensure the MCP container is running: `make mcp-up`
+  2. Set at least one API key: `/secrets:set OPENAI_API_KEY`
+  3. Verify: `/second-opinion:models --check`
+
+  ## How it works
+
+  1. You invoke `/second-opinion:start` with a file, diff, or
+     screenshot.
+  2. The second-opinion MCP server sends your code to the chosen
+     backend.
+  3. The backend reviews and returns findings.
+  4. Findings are presented with severity levels and line numbers.
+  5. You can start a conversation about specific findings.
+
+  ## Integration with other skills
+
+  - `flow:check` can optionally run a second-opinion review.
+  - `grill-yourself` uses `second-opinion:grill-plan` in external
+    mode to get an independent assessment.
+  - `flow:finish` can require a second-opinion pass before merge.
+
+  ## Tips
+
+  - Use `--focus security` for security-focused reviews.
+  - Use `--backend gemini` to get a non-OpenAI perspective.
+  - Review screenshots with `--screenshot path/to/image.png`.
+  - Start sessions for back-and-forth discussion about findings.
+  ```

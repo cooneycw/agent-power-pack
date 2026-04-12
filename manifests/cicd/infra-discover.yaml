@@ -1,0 +1,86 @@
+name: infra-discover
+family: cicd
+description: >-
+  Discover and report the current infrastructure state: running
+  containers, services, ports, and health status.
+triggers:
+  - /cicd:infra-discover
+  - cicd infra-discover
+  - infra discover
+  - what is running
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: health_check
+attribution: null
+order: 80
+prompt: |
+  # /cicd:infra-discover — Discover Running Infrastructure
+
+  Survey the project's infrastructure and report what is running,
+  what is configured, and what might be missing.
+
+  ## Arguments
+
+  None.
+
+  ## Step 1: Check Docker Compose services
+
+  ```bash
+  docker compose ps --format json 2>/dev/null
+  ```
+
+  Report each service: name, state (running/stopped/exited), ports,
+  health status.
+
+  ## Step 2: Check MCP container health
+
+  For each MCP server port (8080-8085, 9100-9105), attempt a health
+  check:
+
+  ```bash
+  curl -sf http://localhost:${PORT}/healthz 2>/dev/null
+  ```
+
+  ## Step 3: Check Woodpecker connectivity
+
+  Call `woodpecker.health_check` via MCP to verify CI server access.
+
+  ## Step 4: Check external services
+
+  Parse AGENTS.md `External Systems` section for Plane and Wiki.js
+  URLs. Attempt connectivity probes.
+
+  ## Step 5: Report
+
+  ```
+  Infrastructure Discovery
+
+  Docker Compose:
+    ✓ mcp          running  (8080-8085, 9100-9105)
+    ✓ aws-sidecar  running  (2773)
+    ✗ postgres     stopped
+
+  MCP Servers:
+    ✓ second-opinion  :8080 healthy
+    ✓ plane           :8081 healthy
+    ✗ wikijs          :8082 unreachable
+
+  External:
+    ✓ Woodpecker CI   healthy (v2.x)
+    ✓ Plane           reachable
+    ✗ Wiki.js         unreachable
+
+  Recommendations:
+    - Start postgres: docker compose up -d postgres
+    - Check Wiki.js configuration
+  ```
+
+  ## Error handling
+
+  - **Docker not running**: report and suggest starting Docker.
+  - **No compose.yaml**: suggest `/cicd:infra-init`.
