@@ -15,12 +15,14 @@ dependencies = [
     "typer>=0.12",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+    "mypy>=1.10",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "pytest-recording>=0.13",
     "ruff>=0.4",
-    "mypy>=1.10",
+    "testcontainers>=4.0",
 ]
 
 [build-system]
