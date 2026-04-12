@@ -1,0 +1,11 @@
+mutation DeletePage($id: Int!) {
+  pages {
+    delete(id: $id) {
+      responseResult {
+        succeeded
+        errorCode
+        message
+      }
+    }
+  }
+}

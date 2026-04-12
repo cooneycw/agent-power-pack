@@ -1,0 +1,15 @@
+query SearchPages($query: String!, $limit: Int) {
+  pages {
+    search(query: $query) {
+      results {
+        id
+        path
+        title
+        description
+        locale
+      }
+      suggestions
+      totalHits
+    }
+  }
+}

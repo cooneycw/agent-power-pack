@@ -1,0 +1,14 @@
+query ListPages($limit: Int, $path: String, $tags: [String!]) {
+  pages {
+    list(limit: $limit, orderBy: UPDATED, orderByDirection: DESC) {
+      id
+      path
+      title
+      description
+      updatedAt
+      tags {
+        tag
+      }
+    }
+  }
+}

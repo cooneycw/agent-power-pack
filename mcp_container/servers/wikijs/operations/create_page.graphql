@@ -1,0 +1,34 @@
+mutation CreatePage(
+  $path: String!
+  $title: String!
+  $content: String!
+  $description: String
+  $tags: [String!]
+  $isPublished: Boolean!
+  $editor: String!
+  $locale: String!
+) {
+  pages {
+    create(
+      path: $path
+      title: $title
+      content: $content
+      description: $description
+      tags: $tags
+      isPublished: $isPublished
+      editor: $editor
+      locale: $locale
+    ) {
+      responseResult {
+        succeeded
+        errorCode
+        message
+      }
+      page {
+        id
+        path
+        title
+      }
+    }
+  }
+}

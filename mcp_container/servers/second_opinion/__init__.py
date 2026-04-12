@@ -1,0 +1,7 @@
+"""Second-opinion MCP server — multi-backend LLM code review and grill tools."""
+
+from __future__ import annotations
+
+from .server import create_server
+
+__all__ = ["create_server"]
