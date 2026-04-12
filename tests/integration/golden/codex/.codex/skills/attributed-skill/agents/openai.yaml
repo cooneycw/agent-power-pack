@@ -1,0 +1,7 @@
+name: attributed-skill
+family: grill
+description: A vendored skill with attribution for testing attribution passthrough.
+triggers:
+- /grill:attributed-skill
+- attributed skill
+mcp_tools: []

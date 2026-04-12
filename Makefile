@@ -1,7 +1,10 @@
 .PHONY: install mcp-up mcp-down mcp-health verify lint test update-vendored-skills secrets-sidecar-up
 
 install:
-	@echo "TODO: agent-power-pack install --runtime $(RUNTIME)"
+ifndef RUNTIME
+	$(error RUNTIME is required. Usage: make install RUNTIME=claude-code)
+endif
+	agent-power-pack install $(RUNTIME) --target-dir "$(CURDIR)" --manifests "$(CURDIR)/manifests"
 
 mcp-up:
 	@echo "TODO: docker compose up -d mcp"

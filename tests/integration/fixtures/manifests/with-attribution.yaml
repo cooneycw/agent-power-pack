@@ -1,0 +1,28 @@
+name: attributed-skill
+family: grill
+description: A vendored skill with attribution for testing attribution passthrough.
+triggers:
+  - /grill:attributed-skill
+  - attributed skill
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution:
+  source: https://github.com/example/skills
+  commit_sha: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+  license: MIT
+  author: Test Author
+order: 100
+prompt: |
+  # Attributed Skill
+
+  This skill has vendor attribution metadata.
+  Used to verify adapters preserve attribution in output.
+
+  ## Steps
+
+  1. Verify attribution is present.
+  2. Report done.

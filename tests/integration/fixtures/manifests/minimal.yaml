@@ -1,0 +1,24 @@
+name: minimal-skill
+family: flow
+description: A minimal skill for testing — no MCP tools, no attribution.
+triggers:
+  - /flow:minimal-skill
+  - minimal skill
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 50
+prompt: |
+  # Minimal Skill
+
+  This is a minimal skill used for adapter testing.
+  It has no MCP tools and no attribution.
+
+  ## Steps
+
+  1. Do nothing.
+  2. Report done.

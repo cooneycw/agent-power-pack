@@ -31,9 +31,93 @@ def install(
     runtime: str = typer.Argument(..., help="Target runtime: claude-code, codex-cli, gemini-cli, cursor."),
     target_dir: str = typer.Option(".", "--target-dir", "-d", help="Repo root to install into."),
     mode: str = typer.Option("project", "--mode", "-m", help="Install mode: project or user."),
+    manifests_dir: str = typer.Option("manifests", "--manifests", help="Path to manifests directory."),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON instead of human table."),
 ) -> None:
     """Install skill catalog into a runtime's native layout."""
-    typer.echo(f"install: runtime={runtime}, target_dir={target_dir}, mode={mode} [stub]")
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.table import Table
+
+    from adapters import AdapterNotImplemented
+    from agent_power_pack.manifest.loader import load_all_manifests
+
+    console = Console()
+
+    # Adapter registry — keyed by runtime_id
+    adapter_map: dict[str, type] = {}
+    try:
+        from adapters.claude import ClaudeAdapter
+        adapter_map["claude-code"] = ClaudeAdapter
+    except ImportError:
+        pass
+    try:
+        from adapters.codex import CodexAdapter
+        adapter_map["codex-cli"] = CodexAdapter
+    except ImportError:
+        pass
+    try:
+        from adapters.gemini import GeminiStub
+        adapter_map["gemini-cli"] = GeminiStub
+    except ImportError:
+        pass
+    try:
+        from adapters.cursor import CursorStub
+        adapter_map["cursor"] = CursorStub
+    except ImportError:
+        pass
+
+    if runtime not in adapter_map:
+        valid = sorted(adapter_map.keys())
+        console.print(f"[red]Unknown runtime '{runtime}'. Valid: {valid}[/red]")
+        raise typer.Exit(code=1)
+
+    target = Path(target_dir).resolve()
+    manifests_path = Path(manifests_dir)
+    if not manifests_path.is_absolute():
+        manifests_path = target / manifests_path
+
+    if not manifests_path.is_dir():
+        console.print(f"[red]Manifests directory not found: {manifests_path}[/red]")
+        raise typer.Exit(code=1)
+
+    manifests = load_all_manifests(manifests_path)
+    adapter = adapter_map[runtime]()
+
+    try:
+        report = adapter.install(manifests, target, mode=mode)
+    except AdapterNotImplemented as exc:
+        console.print(f"[yellow]{exc}[/yellow]")
+        raise typer.Exit(code=1)
+
+    if json_output:
+        import json
+        console.print(json.dumps({
+            "runtime": runtime,
+            "files_written": [str(p) for p in report.files_written],
+            "files_skipped": [str(p) for p in report.files_skipped],
+            "validation_errors": report.validation_errors,
+            "duration_ms": report.duration_ms,
+        }, indent=2))
+    else:
+        table = Table(title=f"Install Report — {runtime}")
+        table.add_column("Metric", style="bold")
+        table.add_column("Value")
+        table.add_row("Runtime", runtime)
+        table.add_row("Files written", str(len(report.files_written)))
+        table.add_row("Files skipped", str(len(report.files_skipped)))
+        table.add_row("Errors", str(len(report.validation_errors)))
+        table.add_row("Duration", f"{report.duration_ms}ms")
+        console.print(table)
+        if report.files_written:
+            console.print("\n[green]Written:[/green]")
+            for p in report.files_written:
+                console.print(f"  {p}")
+        if report.validation_errors:
+            console.print("\n[red]Errors:[/red]")
+            for e in report.validation_errors:
+                console.print(f"  {e}")
 
 
 @app.command()
