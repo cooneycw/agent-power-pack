@@ -1,0 +1,490 @@
+# manifests/flow/auto.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/auto.md
+# (https://github.com/cooneycw/claude-power-pack/blob/main/.claude/commands/flow/auto.md).
+# Substitutions per agent-power-pack Constitution:
+#   - Plane (via plane-mcp) is the primary issue backend; gh CLI is a fallback
+#     when plane-mcp is unreachable or unconfigured (spec FR-010).
+#   - agents-md:lint replaces the manual CLAUDE.md / README.md drift review
+#     (Principle II + spec FR-004).
+#   - grill-yourself fires as a hard gate before Step 3 (Implement) when the
+#     Step 2 analysis estimates >200 changed lines OR >5 files touched
+#     (FR-008 thresholds, pre-implementation variant).
+#   - /docs:c4 publishes diagrams to Wiki.js via wikijs.publish_c4 instead of
+#     writing standalone files (spec FR-011).
+#   - /docs:pptx does NOT exist in v0.1.0 (spec FR-011).
+#   - Woodpecker remains the preferred CI platform; GitHub Actions is a
+#     fallback for polling only.
+
+name: auto
+family: flow
+description: >-
+  Complete end-to-end workflow for a single issue: start worktree → analyze →
+  grill-yourself → implement → lint AGENTS.md → second-opinion review →
+  finish (PR) → merge → verify CI → deploy. The one command to ship.
+triggers:
+  - /flow:auto
+  - flow auto
+  - run flow auto
+  - ship issue
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: list_workspaces
+  - server: plane
+    tool: list_issues
+  - server: plane
+    tool: update_issue
+  - server: plane
+    tool: close_issue
+  - server: woodpecker
+    tool: list_pipelines
+  - server: woodpecker
+    tool: get_pipeline
+  - server: woodpecker
+    tool: get_pipeline_logs
+  - server: second-opinion
+    tool: grill_plan
+  - server: wikijs
+    tool: publish_c4
+attribution: null
+order: 10
+prompt: |
+  # /flow:auto — Full Issue Lifecycle in One Shot
+
+  Complete end-to-end workflow: start worktree → analyze issue → grill-yourself
+  → implement → lint → second-opinion → finish (PR) → merge → verify CI →
+  deploy. Stop immediately if any step fails.
+
+  ## Arguments
+
+  - `ISSUE` (required): issue number, e.g. `42`.
+
+  ## Issue backend detection (do this FIRST, before Step 1)
+
+  Detect which issue backend is live in this repo:
+
+  1. If `plane-mcp` responds to `list_workspaces` without error AND
+     `AGENTS.md` has an `External Systems` section referencing a Plane
+     workspace, use **Plane**. All subsequent `fetch issue` / `update issue` /
+     `close issue` operations go through `plane-mcp` tools.
+  2. Otherwise, fall back to **GitHub Issues** via the `gh` CLI (spec FR-010
+     opt-in fallback adapter). All subsequent `fetch issue` / `update issue`
+     / `close issue` operations use `gh issue ...`.
+  3. If neither is available, STOP with: "No issue backend configured.
+     Run `agent-power-pack init --reconfigure plane` or ensure the `gh` CLI
+     is authenticated against the origin remote."
+
+  Record the chosen backend in the step log. All subsequent steps honor it.
+
+  ## Initial report
+
+  ```
+  Flow Auto: Issue #{ISSUE} — Full Lifecycle
+  Backend:   {Plane | GitHub}
+
+  Step 1/9: Start          — create worktree and branch
+  Step 2/9: Analyze        — understand issue and codebase
+  Step 3/9: Grill-yourself — pre-flight self-interrogation (if non-trivial)
+  Step 4/9: Implement      — write the code
+  Step 5/9: Lint + Docs    — agents-md:lint + publish C4 diagrams to Wiki.js
+  Step 6/9: Finish         — second-opinion review, commit, push, create PR
+  Step 7/9: Merge          — squash-merge PR, clean up worktree
+  Step 8/9: Verify CI      — confirm Woodpecker (or GH Actions) passes on main
+  Step 9/9: Deploy         — make deploy, if target exists
+
+  Proceeding...
+  ```
+
+  ---
+
+  ### Step 1: Start — Create Worktree
+
+  **CRITICAL: You MUST create or enter a worktree before proceeding. NEVER
+  implement changes directly on main. If worktree creation fails, STOP.**
+
+  Fetch issue details via the active backend:
+
+  - **Plane**: call `plane.list_issues` filtered by ID (or a dedicated
+    `get_issue` call if available) and extract `title`, `state`, `body`.
+  - **GitHub**: `gh issue view <ISSUE> --json number,title,state,body`.
+
+  - If issue is not OPEN, warn the user and ask whether to proceed.
+  - Extract the title for branch naming.
+
+  ```bash
+  ISSUE_NUM="$1"
+  REPO=$(basename "$(git rev-parse --show-toplevel)")
+
+  SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' \
+      | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-50)
+  BRANCH="issue-${ISSUE_NUM}-${SLUG}"
+  WORKTREE_DIR="../${REPO}-issue-${ISSUE_NUM}"
+  ```
+
+  Handle the three worktree states:
+
+  - **Already on issue branch**: verify NOT on main. Use current directory.
+  - **Worktree exists**: `cd` into it.
+  - **Remote branch exists**: `git worktree add -b <local> <dir> <remote>`;
+    `cd` into it.
+  - **None**: `git fetch origin main && git worktree add -b <branch> <dir> origin/main`;
+    `cd` into it.
+
+  #### Verification gate (MANDATORY)
+
+  ```bash
+  CURRENT_BRANCH=$(git branch --show-current)
+  if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
+      echo "ERROR: still on $CURRENT_BRANCH after Step 1."
+      echo "STOP: cannot proceed. You MUST be on an issue branch."
+      exit 1
+  fi
+  echo "Verified: on branch '$CURRENT_BRANCH' in $(pwd)"
+  ```
+
+  Report: `Step 1/9: Start complete — worktree at {path}, on branch {branch}`.
+
+  ---
+
+  ### Step 2: Analyze — Understand the Issue
+
+  1. **Parse the issue body**:
+     - Acceptance criteria (checkbox items `- [ ]`).
+     - Referenced files, components, tasks IDs (e.g. T042).
+     - Dependencies on other issues/tasks.
+  2. **If the issue is a `task` from `specs/<NNN>/tasks.md`**, load that
+     spec directory's `plan.md`, `data-model.md`, and relevant `contracts/*`.
+     These are authoritative over the issue body.
+  3. **Explore the codebase** to locate existing patterns, files, and tests.
+  4. **Form an implementation plan** listing:
+     - Exact files to create or modify.
+     - Estimated scope: lines of diff, number of files.
+     - Risks and edge cases.
+  5. **Report the plan to the user**, ending with the scope estimate.
+
+  Report: `Step 2/9: Analyze complete — {N} files, ~{L} lines estimated`.
+
+  ---
+
+  ### Step 3: Grill-yourself — Pre-flight Self-Interrogation
+
+  Fire `grill-yourself` as a gate when the Step 2 estimate exceeds
+  `.specify/grill-triggers.yaml` thresholds (defaults: `>200 lines` OR
+  `>5 files`) OR when the issue body contains `grill-yourself: force`
+  OR when the change touches any of `mcp_container/`, `manifests/`,
+  `adapters/`, `AGENTS.md`, or `.specify/memory/constitution.md`.
+
+  **Preferred path (when second-opinion MCP is reachable)**: call
+  `second-opinion.grill_plan` with `plan = <Step 2 output>`. External LLM
+  acts as the interviewer; transcript returned for the file.
+
+  **Fallback path (when MCP is unreachable)**: perform self-interrogation
+  inline using the `grill-yourself` skill at `~/.claude/skills/grill-yourself/SKILL.md`
+  (or equivalent per-runtime trigger).
+
+  Save the transcript to `specs/<NNN>/grills/<YYYY-MM-DD>-issue-<ISSUE>.md`
+  if a spec directory applies, otherwise `.specify/grills/<YYYY-MM-DD>-issue-<ISSUE>.md`.
+
+  If the transcript's verdict is:
+  - `yes`: proceed to Step 4.
+  - `yes-with-caveats`: proceed, but list the caveats in the next report.
+  - `no`: STOP. Surface the blockers to the user before any code is written.
+
+  Skip this step entirely when Step 2 estimated ≤200 lines AND ≤5 files AND
+  the change does not touch any of the path allowlist above. Honor a
+  `grill-yourself: skip` trailer in the HEAD commit message (if any) as an
+  explicit override.
+
+  Report: `Step 3/9: Grill-yourself {fired | skipped (trivial)}; verdict: {yes|yes-with-caveats|no}`.
+
+  ---
+
+  ### Step 4: Implement — Write the Code
+
+  Execute the Step 2 plan, honoring any Step 3 caveats:
+
+  1. Make all code changes in the worktree.
+  2. Follow existing conventions — match project patterns, file layout,
+     type annotations, logging style.
+  3. Run targeted tests as you go (`pytest tests/unit/<module>` or the
+     nearest fast feedback loop). Do NOT run the full suite yet.
+  4. Verify every acceptance criterion from the issue body.
+
+  If implementation hits a blocker that cannot be resolved locally, STOP
+  and report the blocker with a specific manual intervention suggestion.
+
+  Report: `Step 4/9: Implement complete — {summary of changes}`.
+
+  ---
+
+  ### Step 5: Lint + Docs — AGENTS.md Gate and C4 to Wiki.js
+
+  1. **`agents-md:lint`** — run the linter in non-JSON mode for human
+     output, then again with `--json` to capture the structured result
+     for the PR description:
+
+     ```bash
+     agent-power-pack lint agents-md
+     agent-power-pack lint agents-md --json > /tmp/agents-md-lint.json
+     ```
+
+     If the lint fails: STOP. The linter's stale-generated-file check
+     will have already reverted any hand-edits to `CLAUDE.md` / `GEMINI.md`
+     / `.cursorrules`, so rerun after addressing the real failure (missing
+     Make target, missing required section, etc.).
+
+  2. **C4 diagrams** — if the change touches architecture or `src/`
+     structurally, regenerate and publish:
+
+     ```bash
+     agent-power-pack docs c4 --publish-to wikijs
+     ```
+
+     This invokes `wikijs.publish_c4` internally. Legacy PowerPoint export
+     (`/docs:pptx`) is NOT available in v0.1.0 — do not attempt it.
+
+  3. **Stage any generator output**: `git add CLAUDE.md GEMINI.md .cursorrules`
+     if the lint regenerated them.
+
+  Skip sub-step 2 if `wikijs-mcp` is not configured.
+
+  Report: `Step 5/9: Lint + Docs complete — lint {pass}, C4 {published | skipped}`.
+
+  ---
+
+  ### Step 6: Finish — Second-Opinion, Commit, Push, PR
+
+  1. **Second-opinion review** (preferred): call
+     `second-opinion.review` with the current diff plus the issue context.
+     Attach the result as a PR comment in sub-step 4. If `second-opinion-mcp`
+     is unreachable, skip and note in the report.
+
+  2. **Quality gates** via the CI runner:
+
+     ```bash
+     make verify
+     ```
+
+     If it fails, STOP with the failing command's output.
+
+  3. **Commit** using conventional commit format. The footer MUST include
+     the issue reference:
+
+     ```
+     {type}({scope}): {description}
+
+     {body}
+
+     Closes #{ISSUE_NUM}
+     Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+     ```
+
+  4. **Push**: `git push -u origin "$BRANCH"`.
+
+  5. **Create PR**:
+
+     ```bash
+     gh pr create \
+       --title "{type}({scope}): {description} (Closes #{ISSUE_NUM})" \
+       --body "<<see template below>>"
+     ```
+
+     PR body template:
+
+     ```markdown
+     ## Summary
+     - {bullet 1}
+     - {bullet 2}
+
+     ## Lint result
+     <!-- paste /tmp/agents-md-lint.json as a code block -->
+
+     ## Grill-yourself transcript
+     <!-- link to specs/<NNN>/grills/<file>.md if Step 3 fired -->
+
+     ## Second-opinion review
+     <!-- paste the review summary if Step 6.1 succeeded -->
+
+     ## Test plan
+     - [ ] {how to verify this PR}
+
+     Closes #{ISSUE_NUM}
+
+     🤖 Generated with [Claude Code](https://claude.com/claude-code)
+     ```
+
+  Report: `Step 6/9: Finish complete — PR #{NN} opened`.
+
+  ---
+
+  ### Step 7: Merge — Squash-Merge and Clean Up
+
+  1. Merge the PR:
+
+     ```bash
+     gh pr merge "$PR_NUMBER" --squash --delete-branch
+     ```
+
+  2. Update local main:
+
+     ```bash
+     MAIN_REPO=$( [[ -f ".git" ]] && cat .git | sed 's/gitdir: //' | sed 's|/.git/worktrees/.*||' || pwd )
+     git -C "$MAIN_REPO" checkout main
+     git -C "$MAIN_REPO" pull origin main
+     ```
+
+  3. **Clean up worktree and branch** — execute as SEPARATE bash calls so
+     you never `cd` away from a working directory you're about to delete:
+
+     **7a — Exit the worktree:**
+     ```bash
+     cd "$MAIN_REPO" && pwd
+     ```
+
+     **7b — Remove the worktree (only after 7a confirms cd worked):**
+     ```bash
+     git worktree remove "$WORKTREE_DIR" --force
+     git branch -D "$BRANCH" 2>/dev/null || true
+     ```
+
+     **7c — Verify CWD is valid:**
+     ```bash
+     pwd && git status
+     ```
+
+  4. **Close the issue** (if the PR merge did not already close it via the
+     `Closes #N` footer):
+     - **Plane**: call `plane.close_issue` with the workspace + project
+       + issue ID.
+     - **GitHub**: `gh issue close "$ISSUE_NUM" --comment "Closed via /flow:auto — PR #${PR_NUMBER} merged."`
+
+  Report: `Step 7/9: Merge complete — PR #{NN} squash-merged, worktree cleaned`.
+
+  ---
+
+  ### Step 8: Verify CI — Poll Woodpecker, fall back to GitHub Actions
+
+  1. Resolve commit SHA and repo:
+
+     ```bash
+     cd "$MAIN_REPO"
+     COMMIT_SHA=$(git rev-parse HEAD)
+     SHORT_SHA=$(git rev-parse --short HEAD)
+     REPO_FULL=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+     ```
+
+  2. **Preferred: Woodpecker via `woodpecker-mcp`** — use the MCP tools
+     `list_pipelines` + `get_pipeline` filtered by `commit == $COMMIT_SHA`.
+     Poll every 10s for up to 10 minutes. Terminal statuses:
+
+     - `success`: pass → proceed to Step 9.
+     - `failure | error | killed`: STOP. Fetch logs via
+       `woodpecker.get_pipeline_logs` and attach to the failure report.
+     - timeout: warn and proceed (non-blocking).
+
+  3. **Fallback: GitHub Actions** — if the Woodpecker MCP is unreachable
+     OR no pipeline exists for `$COMMIT_SHA` within the first 60 seconds,
+     use `gh run list --commit "$COMMIT_SHA" --json status,conclusion,databaseId`.
+     Same pass/fail/timeout semantics.
+
+  4. **No CI detected**: warn "No CI system detected; skipping
+     verification" and proceed (non-blocking).
+
+  - Pass → Step 9.
+  - Fail → STOP with pipeline link + log excerpt. Do NOT deploy broken code.
+
+  Report: `Step 8/9: Verify CI complete — pipeline #{N} passed` (or skipped/failed).
+
+  ---
+
+  ### Step 9: Deploy (optional)
+
+  Only if a `deploy` target exists in the main repo's `Makefile`:
+
+  ```bash
+  cd "$MAIN_REPO"
+  if [[ -f "Makefile" ]] && grep -q "^deploy:" Makefile; then
+      make deploy
+      mkdir -p .agent-power-pack
+      echo "$(date -Iseconds) | deploy | $(git rev-parse --short HEAD) | main | $?" \
+          >> .agent-power-pack/deploy.log
+  else
+      echo "No deploy target — skipping."
+  fi
+  ```
+
+  Report: `Step 9/9: Deploy complete` (or skipped).
+
+  ---
+
+  ## Final Summary
+
+  ```
+  Flow Auto Complete
+
+    Issue:        #{ISSUE} — {title}
+    Backend:      {Plane | GitHub}
+    Changes:      {N} files ({paths})
+    Grill-yourself: {fired (transcript: <path>) | skipped}
+    Second-opinion: {reviewed | skipped}
+    PR:           #{NN} (squash-merged)
+    Branch:       {branch} (deleted)
+    Worktree:     {path} (removed)
+    CI:           Woodpecker pipeline #{N} passed | GH Actions run #{N} passed | skipped
+    Deploy:       make deploy (success) | skipped
+    Location:     {main repo path} (main)
+  ```
+
+  ## Error Handling
+
+  At each step, on failure:
+
+  ```
+  Flow Auto stopped at Step N/9: {Step Name}
+
+    Failed: {description}
+    Fix:    {actionable suggestion}
+
+    To resume manually:
+      /flow:start {N}            (if Step 1 failed)
+      [investigate]              (if Step 2 failed)
+      /flow:grill-yourself       (if Step 3 failed)
+      [implement]                (if Step 4 failed)
+      /agents-md:lint            (if Step 5 failed)
+      /flow:finish               (if Step 6 failed)
+      /flow:merge                (if Step 7 failed)
+      [check CI dashboard]       (if Step 8 failed)
+      /flow:deploy               (if Step 9 failed)
+  ```
+
+  Key failure scenarios:
+
+  - **Issue not found** → STOP at Step 1.
+  - **Issue closed** → warn at Step 1, ask to proceed.
+  - **No issue backend configured** → STOP before Step 1 with reconfigure hint.
+  - **Analysis unclear** → STOP at Step 2, ask user.
+  - **Grill-yourself verdict `no`** → STOP at Step 3, surface blockers.
+  - **Implementation blocker** → STOP at Step 4, report.
+  - **agents-md:lint fail** → STOP at Step 5, show rule ID + subject.
+  - **make verify fails** → STOP at Step 6.
+  - **Push fails** → STOP at Step 6, suggest `git pull --rebase`.
+  - **PR merge conflicts** → STOP at Step 7, suggest manual resolution.
+  - **CI pipeline fails** → STOP at Step 8, link pipeline + logs.
+  - **CI not detected** → non-blocking warn at Step 8, continue to Step 9.
+  - **Deploy fails** → report but do not roll back (deploy is best-effort).
+
+  ## Notes
+
+  - This is the "one command to ship" — takes an issue number, delivers it.
+  - Each step builds on the previous one; no skipping.
+  - The `grill-yourself` gate (Step 3) is what makes this safer than the
+    claude-power-pack original: assumptions surface before code is written.
+  - Deploy is always optional; runs only if `deploy` target exists.
+  - After completion, the user is in the main repo on main.
+  - For step-by-step control, use individual skills: /flow:start,
+    /flow:finish, /flow:merge, /flow:deploy.
