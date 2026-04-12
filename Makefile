@@ -7,13 +7,15 @@ endif
 	agent-power-pack install $(RUNTIME) --target-dir "$(CURDIR)" --manifests "$(CURDIR)/manifests"
 
 mcp-up:
-	@echo "TODO: docker compose up -d mcp"
+	docker compose up -d mcp secrets-sidecar
 
 mcp-down:
-	@echo "TODO: docker compose down"
+	docker compose down
 
 mcp-health:
-	@echo "TODO: check MCP server health endpoints"
+	@for port in 8080 8081 8082 8083 8084 8085; do \
+		curl -sf http://localhost:$$port/healthz || echo "FAIL: port $$port"; \
+	done
 
 verify:
 	@echo "TODO: ruff check + mypy + pytest -m 'unit or integration' + perf"
@@ -28,4 +30,4 @@ update-vendored-skills:
 	@echo "TODO: scripts/update_vendored_skills.py"
 
 secrets-sidecar-up:
-	@echo "TODO: docker compose up -d secrets-sidecar"
+	docker compose up -d secrets-sidecar

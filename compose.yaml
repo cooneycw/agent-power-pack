@@ -1,0 +1,38 @@
+services:
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp_container/Dockerfile
+    ports:
+      # stdio/HTTP non-streaming (Claude Code)
+      - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+      - "8085:8085"
+      # SSE/streamable (Codex CLI)
+      - "9100:9100"
+      - "9101:9101"
+      - "9102:9102"
+      - "9103:9103"
+      - "9104:9104"
+      - "9105:9105"
+    env_file:
+      - .env
+    networks:
+      - mcp-net
+    depends_on:
+      secrets-sidecar:
+        condition: service_started
+    restart: unless-stopped
+
+  secrets-sidecar:
+    image: public.ecr.aws/aws-secrets-manager/secrets-manager-agent:1.0.0
+    networks:
+      - mcp-net
+    restart: unless-stopped
+
+networks:
+  mcp-net:
+    driver: bridge
