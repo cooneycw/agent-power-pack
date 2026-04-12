@@ -19,10 +19,19 @@ dev = [
 
 [build-system]
 requires = ["hatchling"]
-build-backend = "hatchling.backends"
+build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_power_pack"]
+
+[tool.uv.workspace]
+members = [
+    "adapters/claude",
+    "adapters/codex",
+    "adapters/gemini",
+    "adapters/cursor",
+    "mcp_container",
+]
 
 [tool.ruff]
 line-length = 100
