@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-power-pack.dev/schemas/agents-md-lint.result.json",
+  "title": "agents-md:lint result",
+  "description": "Structured output of the AGENTS.md linter. Emitted to stdout as JSON when invoked with --json; otherwise rendered to a terminal table.",
+  "type": "object",
+  "required": ["status", "checks", "duration_ms"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail"]
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock duration. Spec SC/perf target: <= 2000 for a 500-line AGENTS.md with 50 make targets."
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "status", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "description": "Stable identifier. Known families: schema.required_section, repo.make_target_exists, repo.command_exists, repo.docker_service_exists, repo.ci_file_exists, generated.in_sync, generated.header_present."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "warn"]
+          },
+          "message": { "type": "string", "minLength": 1 },
+          "subject": {
+            "oneOf": [
+              { "type": "null" },
+              { "type": "string" }
+            ],
+            "description": "The thing being checked (section name, target, path). Null when not applicable."
+          }
+        }
+      }
+    }
+  }
+}
