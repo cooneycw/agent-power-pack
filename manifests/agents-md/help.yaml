@@ -1,0 +1,100 @@
+# manifests/agents-md/help.yaml
+#
+# Help skill for the agents-md family. Explains the AGENTS.md canonical
+# model, the generated-file lifecycle, and available agents-md commands.
+
+name: help
+family: agents-md
+description: >-
+  Explain the AGENTS.md canonical model, generated-file lifecycle,
+  and available agents-md commands.
+triggers:
+  - /agents-md:help
+  - agents-md help
+  - help agents-md
+  - what is agents-md
+  - how does agents-md work
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 99
+prompt: |
+  # /agents-md:help — AGENTS.md System Overview
+
+  Print a concise guide to the AGENTS.md canonical instruction model.
+
+  ## Output
+
+  ```markdown
+  # AGENTS.md — Canonical Instruction Model
+
+  ## What is AGENTS.md?
+
+  AGENTS.md is the single source of truth for project instructions across
+  all AI coding runtimes. You edit AGENTS.md; everything else is generated.
+
+  ## Generated files
+
+  The following files are auto-generated from AGENTS.md:
+
+  | File             | Runtime      | Format                |
+  |------------------|--------------|-----------------------|
+  | `CLAUDE.md`      | Claude Code  | Markdown (Claude)     |
+  | `GEMINI.md`      | Gemini CLI   | Markdown (Gemini)     |
+  | `.cursorrules`   | Cursor       | Cursor rules format   |
+
+  Each generated file carries a header:
+    `<!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->`
+
+  Hand-edits to generated files are detected and reverted by the linter.
+
+  ## Required sections in AGENTS.md
+
+  Every AGENTS.md must include these six H2 sections:
+
+  1. `## CI/CD Protocol`
+  2. `## Quality Gates`
+  3. `## Troubleshooting`
+  4. `## Available Commands`
+  5. `## Docker Conventions`
+  6. `## Deployment`
+
+  Additional sections are welcome. Order does not matter.
+
+  ## Available commands
+
+  | Command            | Description                                 |
+  |--------------------|---------------------------------------------|
+  | `/agents-md:lint`  | Validate AGENTS.md and check generated-file freshness |
+  | `/agents-md:help`  | Show this help text                         |
+
+  ## Flags for /agents-md:lint
+
+  - `--json` — output structured LintResult JSON
+  - `--fix`  — auto-regenerate stale generated files
+
+  ## How it fits into the workflow
+
+  - `flow:auto` Step 5 runs `agents-md:lint` as a gate.
+  - `flow:check` includes an `agents-md:lint` pass.
+  - `project:init` scaffolds a valid AGENTS.md with all required sections.
+  - `project:lite` scaffolds a minimal AGENTS.md for quick-start repos.
+
+  ## Key rules
+
+  - NEVER hand-edit CLAUDE.md, GEMINI.md, or .cursorrules — edit
+    AGENTS.md instead.
+  - Every Make target referenced in AGENTS.md must exist in the Makefile.
+  - Every Docker service referenced must exist in compose.yaml.
+
+  For more details, see the spec: `specs/001-foundation/spec.md` (FR-003, FR-004).
+  ```
+
+  ## Notes
+
+  - This is a static help page — no computation, just information.
+  - Keep it concise; link to the spec for full details.
