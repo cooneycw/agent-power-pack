@@ -1,0 +1,12 @@
+build:
+  steps:
+    - name: test
+      image: python:3.11.9-slim
+      commands:
+        - pytest
+    - name: optional-notify
+      image: curlimages/curl:8.7.1
+      failure: ignore
+      failure_justification: "Slack notification is best-effort; build should not fail if Slack is down."
+      commands:
+        - curl -X POST https://hooks.slack.com/services/xxx

@@ -1,0 +1,12 @@
+staging:
+  steps:
+    - name: deploy-staging
+      image: alpine:3.19
+      commands:
+        - ./deploy.sh staging
+production:
+  steps:
+    - name: deploy-prod
+      image: alpine:3.19
+      commands:
+        - ./deploy.sh production

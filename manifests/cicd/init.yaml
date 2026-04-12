@@ -9,6 +9,8 @@ triggers:
   - cicd init
   - setup ci
   - configure ci
+  - initialize ci/cd
+  - setup woodpecker
 runtimes:
   - claude-code
   - codex-cli
@@ -63,6 +65,10 @@ prompt: |
   - Use explicit `when` filters on every step.
   - Never use `failure: ignore` without a justification comment.
   - Place secrets-reading steps first.
+
+  The generated pipeline MUST pass the woodpecker-checklist validator
+  before it can be written to disk. This ensures every new pipeline
+  starts with the learned findings from woodpecker-baseline baked in.
 
   For **GitHub Actions**:
 
