@@ -106,7 +106,7 @@ No feature is "done" until the foundation repo **itself** uses it:
 | **Phase 4 (US2)** — AGENTS.md lint | `.pre-commit-config.yaml` runs `agent-power-pack lint agents-md`; PRs that break the lint cannot merge. |
 | **Phase 5 (US3)** — MCP container | `.woodpecker.yml` invokes the in-repo `second-opinion` MCP tool on every PR for automated review. |
 | **Phase 6 (US4)** — `grill-yourself` gate | All `grill-yourself: skip` overrides are removed from the foundation PR; the real gate fires on itself. |
-| **Phase 8 (US6)** — Plane + Wiki.js defaults | `app:init` is used on this repo to configure Plane + Wiki.js; open GH issues sync to Plane via `/spec:sync`; plan artifacts publish to Wiki.js automatically. |
+| **Phase 8 (US6)** — Plane + Wiki.js defaults | `project:init` is used on this repo to configure Plane + Wiki.js; open GH issues sync to Plane via `/spec:sync`; plan artifacts publish to Wiki.js automatically. |
 | **Phase 9** — Woodpecker checklist | `.woodpecker.yml` passes `cicd:woodpecker-checklist` in validator mode; failing the checklist blocks the CI from finalizing. |
 
 ### What you can do TODAY (day 1 of implementation)
@@ -140,7 +140,7 @@ agent-power-pack/
 ├── ATTRIBUTION.md              # Vendored-skill credits (Principle V)
 ├── manifests/                  # Neutral YAML skill catalog (Principle I)
 ├── adapters/                   # Per-runtime transpilers
-├── src/agent_power_pack/       # Linter, generator, app:init, grill, secrets, cicd
+├── src/agent_power_pack/       # Linter, generator, project:init, grill, secrets, cicd
 ├── mcp_container/              # Single multi-transport MCP container (Principle III)
 ├── vendor/skills/              # Pinned third-party skills (e.g. grill-me)
 ├── specs/001-foundation/       # Spec-kit artifacts for the foundation feature

@@ -1,7 +1,7 @@
 # manifests/project/lite.yaml
 #
 # Net-new skill defined in FR-019.
-# Canonical command: project:lite. Alias: app:lite.
+# Canonical command: project:lite.
 # Reduced scaffold: AGENTS.md + generated instruction files + stub
 # Makefile. No MCP container, no Plane/Wiki.js wizard, no spec-kit.
 
@@ -10,12 +10,10 @@ family: project
 description: >-
   Lightweight project bootstrap: AGENTS.md (canonical) + generated
   instruction files + stub Makefile with lint/test/verify. No MCP
-  container, no Plane/Wiki.js, no spec-kit ceremony. Alias: app:lite.
+  container, no Plane/Wiki.js, no spec-kit ceremony.
 triggers:
   - /project:lite
-  - /app:lite
   - project lite
-  - app lite
   - quick scaffold
   - minimal scaffold
 runtimes:
@@ -27,7 +25,7 @@ mcp_tools: []
 attribution: null
 order: 15
 prompt: |
-  # /project:lite (alias: /app:lite) — Minimal Project Bootstrap
+  # /project:lite  — Minimal Project Bootstrap
 
   Scaffold a project with just the AGENTS.md lint discipline and nothing
   else. For small scripts, POCs, personal utilities, and any project
@@ -149,7 +147,7 @@ prompt: |
   ```bash
   git init
   git add -A
-  git commit -m "chore: scaffold ${PROJECT_NAME} via app:lite
+  git commit -m "chore: scaffold ${PROJECT_NAME} via project:lite
 
   Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
   ```
@@ -210,5 +208,4 @@ prompt: |
     The `--here` flag detects the existing `AGENTS.md` and skips
     re-scaffolding it; it only adds the missing pieces (MCP container,
     Plane/Wiki.js wizard, spec-kit, `compose.yaml`, etc.).
-  - `project:lite` = `app:lite`. They are the same manifest (FR-019 +
     FR-015a alias convention).
