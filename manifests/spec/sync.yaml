@@ -1,0 +1,105 @@
+name: sync
+family: spec
+description: >-
+  Sync a local specification to Plane (as an issue/cycle) and Wiki.js
+  (as a documentation page). Implements FR-009.
+triggers:
+  - /spec:sync
+  - spec sync
+  - sync spec
+  - publish spec
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: create_issue
+  - server: plane
+    tool: update_issue
+  - server: plane
+    tool: list_issues
+  - server: wikijs
+    tool: create_page
+  - server: wikijs
+    tool: update_page
+  - server: wikijs
+    tool: search
+attribution: null
+order: 20
+prompt: |
+  # /spec:sync — Sync Spec to Plane + Wiki.js
+
+  Mirror a local specification from `.specify/specs/` to both Plane
+  (as a tracked issue or cycle) and Wiki.js (as a documentation page).
+  Idempotent: re-running updates existing entries rather than creating
+  duplicates.
+
+  ## Arguments
+
+  - `SPEC_ID` (required): spec number or directory name (e.g., `001`
+    or `001-user-auth`).
+  - `--plane-only`: sync to Plane only, skip Wiki.js.
+  - `--wiki-only`: sync to Wiki.js only, skip Plane.
+
+  ## Step 1: Locate the spec
+
+  Find the spec directory matching `SPEC_ID` under `.specify/specs/`.
+  Read `spec.md` and extract the title, problem statement, acceptance
+  criteria, and user stories.
+
+  If the spec directory does not exist, STOP with an error.
+
+  ## Step 2: Detect backends
+
+  1. Check if `plane-mcp` is reachable via `plane.list_workspaces`.
+  2. Check if `wikijs-mcp` is reachable via `wikijs.list_pages`.
+  3. If neither is reachable and no `--*-only` flag was passed, STOP
+     with: "No backends configured. Run `agent-power-pack init`."
+
+  ## Step 3: Sync to Plane
+
+  Unless `--wiki-only` is set:
+
+  1. Search existing issues for one matching the spec title or ID tag.
+  2. If found, call `plane.update_issue` with the latest spec content.
+  3. If not found, call `plane.create_issue` with:
+     - **title**: `Spec {ID}: {title}`
+     - **description**: full spec.md content as markdown
+     - **labels**: `["spec", "spec-{ID}"]`
+  4. Record the issue URL.
+
+  ## Step 4: Sync to Wiki.js
+
+  Unless `--plane-only` is set:
+
+  1. Search Wiki.js for a page at path `specs/spec-{ID}`.
+  2. If found, call `wikijs.update_page` with the latest spec content.
+  3. If not found, call `wikijs.create_page` with:
+     - **path**: `specs/spec-{ID}`
+     - **title**: `Spec {ID}: {title}`
+     - **content**: full spec.md rendered as markdown
+     - **tags**: `["spec"]`
+  4. Record the page URL.
+
+  ## Step 5: Report
+
+  ```
+  Spec synced: {SPEC_DIR}/spec.md
+
+    Plane:   {issue URL | skipped | unreachable}
+    Wiki.js: {page URL | skipped | unreachable}
+  ```
+
+  ## Error handling
+
+  - **Spec not found**: STOP with clear error.
+  - **Plane unreachable**: warn, continue with Wiki.js if available.
+  - **Wiki.js unreachable**: warn, continue with Plane if available.
+  - **Both unreachable**: STOP with configuration guidance.
+
+  ## Idempotency
+
+  Running `/spec:sync 001` twice updates existing entries. It never
+  creates duplicate issues or pages.

@@ -1,0 +1,99 @@
+name: deep
+family: security
+description: >-
+  Deep security analysis: full scan plus manual review guidance,
+  threat modeling, and OWASP Top 10 assessment.
+triggers:
+  - /security:deep
+  - security deep
+  - deep security review
+  - threat model
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 30
+prompt: |
+  # /security:deep — Deep Security Analysis
+
+  Comprehensive security review that goes beyond automated scanning
+  to include threat modeling, attack surface analysis, and OWASP
+  Top 10 assessment. Best run before major releases or after
+  significant architecture changes.
+
+  ## Arguments
+
+  - `--scope` (optional): limit analysis to specific directories or
+    modules (comma-separated paths).
+  - `--json` (optional): output structured JSON.
+
+  ## Step 1: Run full automated scan
+
+  Execute everything from `/security:scan` (dependency audit, secret
+  detection, SAST, container scanning).
+
+  ## Step 2: Attack surface analysis
+
+  Identify and catalog:
+
+  1. **Entry points**: HTTP endpoints, CLI commands, MCP tool handlers,
+     message consumers.
+  2. **Authentication boundaries**: where auth is checked, where it
+     is not.
+  3. **Data flows**: where sensitive data enters, is stored, and exits.
+  4. **External integrations**: API calls, database connections,
+     file I/O.
+
+  ## Step 3: OWASP Top 10 assessment
+
+  For each applicable OWASP category, assess the codebase:
+
+  1. **A01 Broken Access Control**: check authorization on endpoints.
+  2. **A02 Cryptographic Failures**: check TLS, hashing, encryption.
+  3. **A03 Injection**: check input validation and parameterization.
+  4. **A04 Insecure Design**: review architecture for design flaws.
+  5. **A05 Security Misconfiguration**: check defaults and configs.
+  6. **A06 Vulnerable Components**: covered by dependency audit.
+  7. **A07 Auth Failures**: check auth implementation.
+  8. **A08 Data Integrity**: check deserialization, CI/CD integrity.
+  9. **A09 Logging Failures**: check security event logging.
+  10. **A10 SSRF**: check URL handling and server-side requests.
+
+  Rate each as: N/A, Pass, Warning, or Fail.
+
+  ## Step 4: Threat model summary
+
+  Produce a brief threat model identifying:
+
+  - Top 3 most likely attack vectors.
+  - Top 3 highest-impact vulnerabilities if exploited.
+  - Recommended mitigations for each.
+
+  ## Step 5: Report
+
+  ```
+  Deep Security Analysis
+
+  Automated Scan:
+    {summary from security:scan}
+
+  Attack Surface:
+    Entry points:    {N} endpoints, {M} CLI commands
+    Auth boundaries: {description}
+    External calls:  {N} integrations
+
+  OWASP Top 10:
+    A01 Access Control:     PASS
+    A02 Cryptographic:      PASS
+    A03 Injection:          WARN — {detail}
+    ...
+
+  Threat Model:
+    1. {vector} — {impact} — {mitigation}
+    2. ...
+
+  Overall: {PASS | REVIEW NEEDED | ACTION REQUIRED}
+  ```

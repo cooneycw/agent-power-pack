@@ -1,0 +1,110 @@
+name: scan
+family: security
+description: >-
+  Run a comprehensive security scan of the project: dependency audit,
+  secret detection, SAST, and container image scanning.
+triggers:
+  - /security:scan
+  - security scan
+  - run security scan
+  - audit security
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 10
+prompt: |
+  # /security:scan — Full Security Scan
+
+  Run a comprehensive security audit covering dependency
+  vulnerabilities, hardcoded secrets, static analysis findings,
+  and container image CVEs.
+
+  ## Arguments
+
+  - `--fix` (optional): auto-fix what can be fixed (upgrade deps,
+    remove secrets from code).
+  - `--json` (optional): output structured JSON results.
+  - `--severity` (optional): minimum severity to report —
+    `critical`, `high`, `medium`, `low`. Default: `medium`.
+
+  ## Step 1: Dependency audit
+
+  Detect the package manager and run the appropriate audit:
+
+  - **Python (uv/pip)**: `uv pip audit` or `pip-audit`.
+  - **Node (npm/yarn)**: `npm audit` or `yarn audit`.
+  - **Go**: `govulncheck ./...`.
+  - **Rust**: `cargo audit`.
+
+  Report each vulnerability with CVE ID, severity, affected package,
+  and fixed version (if available).
+
+  ## Step 2: Secret detection
+
+  Scan the repository for hardcoded secrets:
+
+  ```bash
+  # Check for common secret patterns
+  git log --all --diff-filter=A -- '*.env' '*.key' '*.pem'
+  ```
+
+  Also scan for:
+  - API keys (pattern: long alphanumeric strings near "key", "token",
+    "secret", "password").
+  - AWS credentials (`AKIA...`).
+  - Private keys (`-----BEGIN`).
+  - Connection strings with embedded passwords.
+
+  Check `.gitignore` to verify `.env`, credentials, and key files
+  are excluded.
+
+  ## Step 3: Static analysis (SAST)
+
+  Run language-appropriate SAST tools:
+
+  - **Python**: `bandit -r src/` for common security issues.
+  - **JavaScript/TypeScript**: check for XSS, injection patterns.
+  - **General**: check for OWASP Top 10 patterns in the codebase.
+
+  ## Step 4: Container scanning (if applicable)
+
+  If `compose.yaml` or `Dockerfile` exists:
+
+  ```bash
+  docker scout cves "${IMAGE}" 2>/dev/null || \
+    trivy image "${IMAGE}" 2>/dev/null || \
+    echo "No container scanner available"
+  ```
+
+  ## Step 5: Report
+
+  ```
+  Security Scan Results
+
+  Dependencies:
+    ✓ 142 packages audited, 0 vulnerabilities
+
+  Secrets:
+    ✓ No hardcoded secrets detected
+    ✓ .gitignore covers .env, *.key, *.pem
+
+  SAST:
+    ⚠ 2 medium findings
+      - src/auth.py:42 — possible SQL injection (B608)
+      - src/api.py:15 — hardcoded temp directory (B108)
+
+  Containers:
+    ✓ mcp image: 0 critical, 1 high, 3 medium CVEs
+
+  Summary: 0 critical, 1 high, 5 medium
+  ```
+
+  ## Error handling
+
+  - **Tool not installed**: skip that check, note it in the report.
+  - **No package manager detected**: skip dependency audit.
+  - **No Docker**: skip container scanning.

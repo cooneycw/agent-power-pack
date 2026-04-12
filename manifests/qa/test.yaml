@@ -1,0 +1,90 @@
+name: test
+family: qa
+description: >-
+  Run the project's test suite with smart defaults: detect the test
+  framework, run tests, and report results with coverage.
+triggers:
+  - /qa:test
+  - qa test
+  - run tests
+  - test
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 10
+prompt: |
+  # /qa:test — Run Test Suite
+
+  Detect the project's test framework, run the test suite, and report
+  results with optional coverage. Delegates to `make test` when a
+  Makefile target exists, falling back to framework-specific commands.
+
+  ## Arguments
+
+  - `PATTERN` (optional): test file pattern, test name, or marker
+    to filter (e.g., `test_auth`, `unit`, `tests/test_api.py`).
+  - `--coverage` (optional): enable coverage reporting (default: false).
+  - `--watch` (optional): re-run on file changes (default: false).
+  - `--verbose` (optional): verbose output (default: false).
+
+  ## Step 1: Detect test framework
+
+  Check in order:
+
+  1. **Makefile**: if `make test` target exists, use it.
+  2. **Python (pytest)**: `pyproject.toml` has `[tool.pytest]` or
+     `pytest.ini` / `conftest.py` exists.
+  3. **Python (unittest)**: `tests/` directory with `test_*.py` files.
+  4. **Node (jest)**: `package.json` has `jest` in dependencies or
+     a `jest.config.*` exists.
+  5. **Node (vitest)**: `vitest.config.*` exists.
+  6. **Go**: `*_test.go` files exist.
+  7. **Rust**: `Cargo.toml` exists.
+
+  ## Step 2: Build the command
+
+  - **Make**: `make test`
+  - **pytest**: `pytest ${PATTERN} ${VERBOSE:+-v} ${COVERAGE:+--cov=src}`
+  - **jest**: `npx jest ${PATTERN} ${VERBOSE:+--verbose} ${COVERAGE:+--coverage}`
+  - **go**: `go test ${VERBOSE:+-v} ./...`
+  - **cargo**: `cargo test ${VERBOSE:+-- --nocapture}`
+
+  If `PATTERN` is provided and the framework is Make, fall through
+  to the framework-specific command to support filtering.
+
+  ## Step 3: Run
+
+  Execute the test command and stream output to the user.
+
+  ## Step 4: Report
+
+  ```
+  Test Results
+
+    Framework: pytest
+    Tests:     142 passed, 3 failed, 1 skipped
+    Duration:  4.2s
+    Coverage:  87% (if --coverage)
+
+  Failures:
+    FAIL tests/test_auth.py::test_login_expired_token
+         AssertionError: expected 401, got 200
+         tests/test_auth.py:42
+
+    FAIL tests/test_api.py::test_rate_limit
+         TimeoutError: request did not complete in 5s
+         tests/test_api.py:87
+  ```
+
+  ## Error handling
+
+  - **No test framework detected**: "No test framework found. Create
+    a test file or configure a test target in the Makefile."
+  - **Tests fail**: report failures with file paths and line numbers.
+    Exit code mirrors the test runner's exit code.
+  - **Missing dependencies**: suggest `make install` or the appropriate
+    install command.

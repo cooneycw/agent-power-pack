@@ -1,0 +1,74 @@
+name: status
+family: spec
+description: >-
+  Show the status of a spec: local file state, Plane issue state,
+  and Wiki.js page state.
+triggers:
+  - /spec:status
+  - spec status
+  - check spec
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: list_issues
+  - server: wikijs
+    tool: search
+attribution: null
+order: 30
+prompt: |
+  # /spec:status — Check Spec Status
+
+  Report the current state of a specification across local files,
+  Plane, and Wiki.js.
+
+  ## Arguments
+
+  - `SPEC_ID` (optional): spec number or directory name. If omitted,
+    show status for all specs.
+
+  ## Step 1: Enumerate specs
+
+  If `SPEC_ID` is given, locate that spec under `.specify/specs/`.
+  Otherwise, list all directories under `.specify/specs/`.
+
+  ## Step 2: For each spec, check
+
+  1. **Local**: does `spec.md` exist? When was it last modified?
+     Does a `tasks.md` or `plan.md` exist?
+  2. **Plane**: search for an issue tagged `spec-{ID}`. Report its
+     state (open/in-progress/done) and URL.
+  3. **Wiki.js**: search for a page at `specs/spec-{ID}`. Report
+     whether it exists and its URL.
+
+  ## Step 3: Report
+
+  For a single spec:
+
+  ```
+  Spec {ID}: {title}
+
+    Local:   .specify/specs/{dir}/spec.md (modified {date})
+    Plane:   {state} — {url} | not synced
+    Wiki.js: {url} | not synced
+    Tasks:   {N tasks} | no tasks.md
+  ```
+
+  For all specs (table format):
+
+  ```
+  | ID  | Title              | Local | Plane       | Wiki.js     |
+  |-----|--------------------|-------|-------------|-------------|
+  | 001 | User Auth          | yes   | open (#42)  | synced      |
+  | 002 | Payment Flow       | yes   | not synced  | not synced  |
+  ```
+
+  ## Error handling
+
+  - **`.specify/` missing**: "No specs found. Run `/spec:create` first."
+  - **Plane/Wiki.js unreachable**: show "unreachable" in the column,
+    do not fail the entire command.
+  - **Spec ID not found**: "Spec {ID} not found."

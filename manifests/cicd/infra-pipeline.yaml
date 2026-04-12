@@ -1,0 +1,72 @@
+name: infra-pipeline
+family: cicd
+description: >-
+  Generate or update a Woodpecker CI pipeline specifically for
+  infrastructure changes (container builds, deployments, infra tests).
+triggers:
+  - /cicd:infra-pipeline
+  - cicd infra-pipeline
+  - infra pipeline
+  - deploy pipeline
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: create_pipeline
+attribution: null
+order: 90
+prompt: |
+  # /cicd:infra-pipeline — Infrastructure CI Pipeline
+
+  Generate or update a CI pipeline configuration focused on
+  infrastructure: container builds, image pushes, deployment steps,
+  and infrastructure smoke tests.
+
+  ## Arguments
+
+  - `--target` (optional): `woodpecker` (default) or `github`.
+  - `--env` (optional): target environment — `dev`, `staging`, `prod`.
+    Default: `dev`.
+
+  ## Step 1: Analyze infrastructure files
+
+  Scan the repository for:
+
+  1. `compose.yaml` / `docker-compose.yml` — services to build.
+  2. `mcp_container/Dockerfile` — container image to build and push.
+  3. Deployment scripts in `scripts/` or `deploy/`.
+  4. Infrastructure test files.
+
+  ## Step 2: Generate pipeline
+
+  Create `.woodpecker/infra.yml` (or update existing) with stages:
+
+  1. **build**: build all container images.
+  2. **test**: run infrastructure smoke tests (health checks, port
+     connectivity).
+  3. **push**: push images to registry (only on main branch).
+  4. **deploy**: run deployment scripts for the target environment
+     (only on tagged releases or manual trigger).
+
+  Apply the same woodpecker-checklist rules as `cicd:init`.
+
+  ## Step 3: Report
+
+  ```
+  Infrastructure pipeline: .woodpecker/infra.yml
+
+    Stages:  build → test → push → deploy
+    Env:     {env}
+    Images:  {list of images to build}
+    Deploy:  {trigger condition}
+
+  Validate: /cicd:check .woodpecker/infra.yml
+  ```
+
+  ## Error handling
+
+  - **No infrastructure files**: suggest `/cicd:infra-init` first.
+  - **Existing pipeline**: warn, ask before overwriting.

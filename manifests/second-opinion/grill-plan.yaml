@@ -1,0 +1,108 @@
+name: grill-plan
+family: second-opinion
+description: >-
+  Stress-test a plan or design by submitting it to an external LLM
+  via the second-opinion MCP server's grill_plan tool (FR-006).
+triggers:
+  - /second-opinion:grill-plan
+  - second-opinion grill-plan
+  - grill plan externally
+  - external grill
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: second-opinion
+    tool: grill_plan
+attribution: null
+order: 30
+prompt: |
+  # /second-opinion:grill-plan — External Plan Interrogation
+
+  Submit a plan or design document to an external LLM for
+  stress-testing via the `grill_plan` MCP tool. This is the
+  external-backend counterpart to `grill-yourself` — it uses a
+  different model to catch blind spots that the primary model
+  might share.
+
+  ## Arguments
+
+  - `PLAN` (optional): path to a plan file, or inline plan text.
+    If omitted, read from the most recent plan in `.specify/`.
+  - `--depth` (optional): `quick` (5 questions) or `deep`
+    (15+ questions). Default: `quick`.
+  - `--backend` (optional): LLM backend — `gemini`, `openai`,
+    `anthropic`, `o4-mini`. Default: `openai`.
+  - `--save` (optional): save the transcript to
+    `.specify/grills/`. Default: true.
+
+  ## Step 1: Gather the plan
+
+  1. If `PLAN` is a file path, read it.
+  2. If `PLAN` is inline text, use it directly.
+  3. If no `PLAN`, look for the most recent plan:
+     - `.specify/specs/*/plan.md` (most recently modified).
+     - Active plan in the current conversation context.
+  4. If no plan found, STOP: "No plan found. Provide a plan file
+     or text."
+
+  ## Step 2: Submit to grill_plan
+
+  Call `second-opinion.grill_plan` with:
+  - `plan`: the plan text.
+  - `depth`: `quick` or `deep`.
+  - `backend`: the chosen backend.
+
+  ## Step 3: Present results
+
+  ```
+  External Grill — {backend} ({depth} mode)
+
+  Questions & Answers:
+
+  1. Q: {question}
+     A: {answer}
+     Confidence: {high | medium | low}
+
+  2. Q: {question}
+     A: {answer}
+     Confidence: {low}
+     ⚠ LOW CONFIDENCE — this area needs more thought
+
+  ...
+
+  Summary: {reviewer's overall assessment}
+
+  Confidence breakdown:
+    High:   {N} questions
+    Medium: {M} questions
+    Low:    {L} questions — these are your blind spots
+  ```
+
+  ## Step 4: Save transcript (if --save)
+
+  Write the full Q&A transcript to:
+  `.specify/grills/{timestamp}-{backend}-grill.md`
+
+  ## Step 5: Recommendations
+
+  Based on low-confidence answers, suggest:
+  1. Areas that need more research or design work.
+  2. Questions to discuss with the team.
+  3. Risks that should be documented in the spec.
+
+  ## Error handling
+
+  - **MCP server not running**: suggest `make mcp-up`.
+  - **Backend API key missing**: suggest `/secrets:set`.
+  - **No plan found**: prompt the user.
+  - **grill_plan tool timeout**: report partial results.
+
+  ## Notes
+
+  - This implements FR-006 from the spec.
+  - `grill-yourself` uses this tool in external mode for independent
+    validation.
+  - The transcript is useful as a PR attachment to show due diligence.

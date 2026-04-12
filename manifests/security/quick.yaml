@@ -1,0 +1,84 @@
+name: quick
+family: security
+description: >-
+  Fast security check: dependency audit and secret detection only.
+  Runs in under 30 seconds for most projects.
+triggers:
+  - /security:quick
+  - security quick
+  - quick security check
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 20
+prompt: |
+  # /security:quick — Quick Security Check
+
+  A fast security check that covers the two most impactful areas:
+  dependency vulnerabilities and hardcoded secrets. Designed to run
+  in under 30 seconds for integration into development workflows.
+
+  ## Arguments
+
+  - `--json` (optional): output structured JSON.
+
+  ## Step 1: Dependency audit
+
+  Run the fastest available dependency auditor:
+
+  - **Python**: `pip-audit --progress-spinner off`
+  - **Node**: `npm audit --production`
+  - **Go**: `govulncheck ./...`
+
+  Report only `critical` and `high` severity findings.
+
+  ## Step 2: Secret scan (staged files only)
+
+  Scan only staged and recently modified files for secrets:
+
+  ```bash
+  git diff --cached --name-only
+  git diff --name-only HEAD~5
+  ```
+
+  Check these files for secret patterns (API keys, tokens, passwords,
+  private keys).
+
+  ## Step 3: .gitignore check
+
+  Verify that `.env`, `*.key`, `*.pem`, `credentials.*`, and
+  `*.secret` are in `.gitignore`.
+
+  ## Step 4: Report
+
+  ```
+  Quick Security Check (0.8s)
+
+    Dependencies: ✓ clean (142 packages)
+    Secrets:      ✓ clean (23 files checked)
+    .gitignore:   ✓ covers sensitive patterns
+
+  All clear.
+  ```
+
+  Or on failure:
+
+  ```
+  Quick Security Check (1.2s)
+
+    Dependencies: ✗ 1 critical vulnerability
+      - requests 2.28.0 — CVE-2023-XXXX (upgrade to 2.31.0)
+    Secrets:      ✓ clean
+    .gitignore:   ⚠ missing: *.pem
+
+  Action required: 1 critical, 1 warning
+  ```
+
+  ## Notes
+
+  - For a comprehensive scan, use `/security:scan` (deeper but slower).
+  - This check is called by `flow:check` as a pre-commit gate.

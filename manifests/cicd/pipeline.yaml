@@ -1,0 +1,76 @@
+name: pipeline
+family: cicd
+description: >-
+  List and inspect recent CI pipeline runs for the current repository.
+triggers:
+  - /cicd:pipeline
+  - cicd pipeline
+  - list pipelines
+  - pipeline status
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: list_pipelines
+  - server: woodpecker
+    tool: get_pipeline
+  - server: woodpecker
+    tool: get_pipeline_logs
+attribution: null
+order: 50
+prompt: |
+  # /cicd:pipeline — List & Inspect Pipelines
+
+  Show recent pipeline runs for the current repository, or inspect
+  a specific pipeline's details and logs.
+
+  ## Arguments
+
+  - `NUMBER` (optional): pipeline number to inspect. If omitted,
+    list the 10 most recent pipelines.
+  - `--logs` (optional): show logs for a specific pipeline.
+  - `--step` (optional): filter logs to a specific step name.
+
+  ## Mode 1: List recent pipelines (no NUMBER)
+
+  Call `woodpecker.list_pipelines` for the current repo.
+
+  ```
+  Recent pipelines for {repo}:
+
+  | #    | Branch   | Status  | Duration | Triggered        |
+  |------|----------|---------|----------|------------------|
+  | 142  | main     | success | 67s      | 2 hours ago      |
+  | 141  | feature  | failure | 23s      | 3 hours ago      |
+  | 140  | main     | success | 72s      | 1 day ago        |
+  ```
+
+  ## Mode 2: Inspect pipeline (NUMBER given)
+
+  Call `woodpecker.get_pipeline` for the specified number.
+
+  ```
+  Pipeline #{number} — {status}
+
+    Branch:    {branch}
+    Commit:    {sha} ({message})
+    Duration:  {duration}s
+    Started:   {timestamp}
+
+    Steps:
+      ✓ lint      (12s)
+      ✓ test      (45s)
+      ✓ verify    (10s)
+  ```
+
+  If `--logs` is set, also call `woodpecker.get_pipeline_logs` and
+  display the output (truncated to last 50 lines per step).
+
+  ## Error handling
+
+  - **Repo not registered**: suggest registering in Woodpecker.
+  - **Pipeline not found**: "Pipeline #{N} not found."
+  - **Server unreachable**: suggest `/cicd:health`.

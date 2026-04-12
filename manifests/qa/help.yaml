@@ -1,0 +1,84 @@
+name: help
+family: qa
+description: >-
+  Explain the QA workflow, available testing commands, and best
+  practices for the project.
+triggers:
+  - /qa:help
+  - qa help
+  - help qa
+  - how to test
+  - testing help
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 99
+prompt: |
+  # /qa:help — QA Workflow Guide
+
+  Print a guide to the project's QA workflow, testing commands, and
+  best practices.
+
+  ## Output
+
+  Detect the project's test framework and tailor the guide:
+
+  ```markdown
+  # QA Workflow
+
+  ## Available commands
+
+  | Command              | Description                          |
+  |----------------------|--------------------------------------|
+  | `/qa:test`           | Run the full test suite              |
+  | `/qa:test unit`      | Run only unit tests                  |
+  | `/qa:test --coverage`| Run tests with coverage report       |
+  | `/security:quick`    | Quick security check                 |
+  | `make test`          | Run tests via Makefile               |
+  | `make verify`        | Run lint + test + security check     |
+
+  ## Test structure
+
+  {Detected structure, e.g.:}
+  ```
+  tests/
+  ├── unit/          — fast, isolated tests (no I/O)
+  ├── integration/   — tests with real dependencies
+  ├── e2e/           — end-to-end tests
+  ├── perf/          — performance benchmarks
+  └── fixtures/      — shared test data
+  ```
+
+  ## Best practices
+
+  1. **Write tests first** for bug fixes (red-green-refactor).
+  2. **Unit tests** should be fast (< 1s each) and isolated.
+  3. **Integration tests** can use real databases/services.
+  4. **Mark tests** with `@pytest.mark.unit`, `@pytest.mark.integration`
+     for selective running.
+  5. **Coverage target**: aim for > 80% on new code.
+  6. **Security**: run `/security:quick` before every commit.
+
+  ## CI integration
+
+  Tests run automatically in the Woodpecker CI pipeline:
+  - `lint` stage: code style and AGENTS.md validation
+  - `test` stage: full test suite
+  - `verify` stage: lint + test + security
+
+  ## Troubleshooting
+
+  - **Tests won't run**: check `make install` was run.
+  - **Import errors**: ensure you're in the project virtualenv.
+  - **Flaky tests**: check for shared state or timing dependencies.
+  - **Slow tests**: mark slow tests and run fast tests first.
+  ```
+
+  ## Notes
+
+  - This is a static help page — no computation.
+  - Content is tailored to the detected test framework.

@@ -1,0 +1,71 @@
+name: infra-init
+family: cicd
+description: >-
+  Initialize infrastructure-as-code scaffolding for the project,
+  targeting Docker Compose with optional Woodpecker CI integration.
+triggers:
+  - /cicd:infra-init
+  - cicd infra-init
+  - infra init
+  - setup infrastructure
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 70
+prompt: |
+  # /cicd:infra-init — Scaffold Infrastructure Configuration
+
+  Generate infrastructure-as-code files for the project. Focuses on
+  Docker Compose for local development and Woodpecker CI for
+  continuous integration.
+
+  ## Arguments
+
+  - `--services` (optional): comma-separated service names to include
+    beyond the MCP container (e.g., `postgres,redis`).
+  - `--with-sidecar` (optional): include the AWS Secrets Manager
+    sidecar (default: true if secrets tier uses AWS).
+
+  ## Step 1: Detect existing infrastructure
+
+  Check for existing `compose.yaml`, `Dockerfile`, `.env.example`,
+  and `.woodpecker.yml`. Report what exists and what will be created.
+
+  ## Step 2: Generate compose.yaml
+
+  If `compose.yaml` does not exist, generate one with:
+
+  - **mcp** service: the MCP container with correct port mappings
+    (8080-8085 stdio, 9100-9105 SSE).
+  - **aws-sidecar** service (if applicable): the
+    `aws-secretsmanager-agent` sidecar on port 2773.
+  - Any additional services requested via `--services`.
+
+  ## Step 3: Generate .env.example
+
+  Create `.env.example` documenting all required environment variables
+  for the services, with placeholder values.
+
+  ## Step 4: Report
+
+  ```
+  Infrastructure initialized:
+
+    compose.yaml:    {created | updated | exists}
+    .env.example:    {created | exists}
+    Services:        mcp, aws-sidecar{, extra services}
+
+  Next steps:
+    1. Copy .env.example to .env and fill in values
+    2. make mcp-up — start services
+    3. /cicd:init — scaffold CI pipeline
+  ```
+
+  ## Error handling
+
+  - **compose.yaml exists**: ask before overwriting.
+  - **Docker not installed**: warn but still generate files.

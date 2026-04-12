@@ -1,0 +1,100 @@
+name: start
+family: second-opinion
+description: >-
+  Request a code review from an external LLM backend via the
+  second-opinion MCP server. Supports Gemini, OpenAI, Anthropic,
+  and o4-mini backends.
+triggers:
+  - /second-opinion:start
+  - second-opinion start
+  - second opinion
+  - code review
+  - get review
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: second-opinion
+    tool: review
+  - server: second-opinion
+    tool: review_screenshot
+  - server: second-opinion
+    tool: start_session
+attribution: null
+order: 10
+prompt: |
+  # /second-opinion:start — Request External Code Review
+
+  Submit code for review by an external LLM via the `second-opinion`
+  MCP server. The reviewer uses a different model than the one running
+  this skill, providing a genuinely independent perspective.
+
+  ## Arguments
+
+  - `TARGET` (optional): file path, directory, or git diff spec to
+    review. Default: staged changes (`git diff --cached`).
+  - `--backend` (optional): LLM backend — `gemini`, `openai`,
+    `anthropic`, `o4-mini`. Default: `openai`.
+  - `--focus` (optional): review focus — `security`, `performance`,
+    `correctness`, `style`, or a custom prompt.
+  - `--screenshot` (optional): path to a screenshot for visual review.
+
+  ## Step 1: Gather code to review
+
+  Determine the review target:
+
+  1. If `TARGET` is a file path, read the file.
+  2. If `TARGET` is a directory, collect all modified files in it.
+  3. If `TARGET` is a git range (e.g., `HEAD~3..HEAD`), use
+     `git diff` to get the changes.
+  4. If no `TARGET`, use `git diff --cached` (staged changes).
+  5. If nothing is staged, use `git diff` (unstaged changes).
+  6. If no changes at all, ask the user what to review.
+
+  ## Step 2: Submit for review
+
+  If `--screenshot` is provided, call `second-opinion.review_screenshot`:
+  - Read the image file and base64-encode it.
+  - Pass the image and a review prompt.
+
+  Otherwise, call `second-opinion.review` with:
+  - `code`: the gathered code/diff.
+  - `language`: auto-detected from file extensions.
+  - `focus`: the specified focus area (if any).
+  - `backend`: the chosen backend.
+
+  ## Step 3: Present findings
+
+  ```
+  Second Opinion — {backend} review
+
+  Summary: {reviewer's summary}
+
+  Findings:
+    🔴 HIGH   line 42: {finding}
+    🟡 MEDIUM line 87: {finding}
+    🟢 LOW    line 15: {suggestion}
+
+  {N} findings: {critical} critical, {high} high, {medium} medium, {low} low
+  ```
+
+  ## Step 4: Offer follow-up
+
+  Ask if the user wants to:
+  1. Start a conversation with the reviewer about a specific finding.
+  2. Apply suggested fixes.
+  3. Review additional files.
+
+  If option 1, call `second-opinion.start_session` and enter
+  conversational mode.
+
+  ## Error handling
+
+  - **MCP server not running**: "second-opinion server not reachable.
+    Run `make mcp-up`."
+  - **Backend API key missing**: "Missing API key for {backend}.
+    Use `/secrets:set {BACKEND}_API_KEY`."
+  - **No code to review**: prompt the user for a target.
+  - **Review timeout**: report partial results if available.

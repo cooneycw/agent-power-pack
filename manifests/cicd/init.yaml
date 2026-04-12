@@ -1,11 +1,14 @@
 name: init
 family: cicd
 description: >-
-  Initialize CI/CD configuration for a project, generating a .woodpecker.yml
-  and validating it against the woodpecker-checklist before finalizing.
+  Scaffold CI/CD configuration for the current project, targeting
+  Woodpecker CI by default. Runs the woodpecker-checklist validator
+  on the generated config (FR-018).
 triggers:
   - /cicd:init
   - cicd init
+  - setup ci
+  - configure ci
   - initialize ci/cd
   - setup woodpecker
 runtimes:
@@ -13,25 +16,98 @@ runtimes:
   - codex-cli
   - gemini-cli
   - cursor
-mcp_tools: []
+mcp_tools:
+  - server: woodpecker
+    tool: health_check
 attribution: null
-order: 5
+order: 10
 prompt: |
-  # /cicd:init — CI/CD Initialization
+  # /cicd:init — Scaffold CI/CD Configuration
 
-  Bootstrap a Woodpecker CI/CD pipeline for the current project.
+  Generate a CI/CD pipeline configuration file for the current project.
+  Defaults to Woodpecker CI (`.woodpecker.yml`). Validates the output
+  against `cicd:woodpecker-checklist` before finalizing (FR-018).
 
-  ## Steps
+  ## Arguments
 
-  1. Detect the project type (Python, Go, Node, etc.) from repo contents.
-  2. Generate a `.woodpecker.yml` with lint, test, verify, and deploy stages.
-  3. Run `cicd:woodpecker-checklist` in **validator mode** against the generated file.
-  4. If any non-waivable checklist item fails, report the failures and refuse to finalize.
-  5. If all non-waivable items pass, write the `.woodpecker.yml` to the repo root.
+  - `--target` (optional): CI system — `woodpecker` (default), `github`.
+  - `--stages` (optional): comma-separated stages to include. Default:
+    `lint,test,verify,deploy`.
 
-  ## Important
+  ## Step 1: Detect project characteristics
 
-  The generated pipeline MUST pass the woodpecker-checklist validator before it can be
-  written to disk. This ensures every new pipeline starts with the learned findings from
-  woodpecker-baseline baked in. Use `agent-power-pack cicd woodpecker-checklist` to
-  review failures interactively.
+  Analyze the repository to determine:
+
+  1. **Language/framework**: check for `pyproject.toml`, `package.json`,
+     `go.mod`, `Cargo.toml`, `Makefile`.
+  2. **Existing Makefile targets**: parse the Makefile for available
+     targets (`lint`, `test`, `verify`, `deploy`, etc.).
+  3. **Docker usage**: check for `compose.yaml` / `Dockerfile`.
+  4. **Existing CI config**: warn if `.woodpecker.yml` or
+     `.github/workflows/` already exists.
+
+  ## Step 2: Generate pipeline config
+
+  For **Woodpecker** (default):
+
+  Generate `.woodpecker.yml` with:
+
+  - **lint stage**: runs `make lint`.
+  - **test stage**: runs `make test`, depends on lint.
+  - **verify stage**: runs `make verify`, depends on test.
+  - **deploy stage**: runs `make deploy`, depends on verify,
+    triggered only on `main` branch pushes.
+
+  Apply best practices from the woodpecker-checklist:
+
+  - Pin all image tags (no `:latest`).
+  - Set `safe.directory` in git steps.
+  - Use explicit `when` filters on every step.
+  - Never use `failure: ignore` without a justification comment.
+  - Place secrets-reading steps first.
+
+  The generated pipeline MUST pass the woodpecker-checklist validator
+  before it can be written to disk. This ensures every new pipeline
+  starts with the learned findings from woodpecker-baseline baked in.
+
+  For **GitHub Actions**:
+
+  Generate `.github/workflows/ci.yml` with equivalent stages using
+  `ubuntu-latest` runners.
+
+  ## Step 3: Validate with woodpecker-checklist
+
+  If the target is `woodpecker`, run the checklist in validator mode:
+
+  ```
+  agent-power-pack cicd woodpecker-checklist --validate .woodpecker.yml
+  ```
+
+  If any non-waivable failures occur, fix them before writing the file.
+  Report waivable warnings to the user.
+
+  ## Step 4: Write the config
+
+  Write the validated configuration to the appropriate path.
+
+  ## Step 5: Report
+
+  ```
+  CI/CD initialized: .woodpecker.yml
+
+    Target:   Woodpecker CI
+    Stages:   lint → test → verify → deploy
+    Checklist: {N} checks passed, {W} warnings
+    Images:   all pinned
+
+  Next steps:
+    1. Review .woodpecker.yml
+    2. /cicd:check — validate the pipeline
+    3. git push — trigger the first pipeline run
+  ```
+
+  ## Error handling
+
+  - **Existing config**: warn and ask before overwriting.
+  - **No Makefile**: generate pipeline with inline commands instead.
+  - **Checklist failures**: fix automatically if possible, report otherwise.

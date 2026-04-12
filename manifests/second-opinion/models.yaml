@@ -1,0 +1,68 @@
+name: models
+family: second-opinion
+description: >-
+  List available second-opinion backends and their status (API key
+  configured, reachable, supported features).
+triggers:
+  - /second-opinion:models
+  - second-opinion models
+  - list backends
+  - available models
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: second-opinion
+    tool: review
+attribution: null
+order: 20
+prompt: |
+  # /second-opinion:models — List Available Backends
+
+  Show all supported second-opinion backends, their configuration
+  status, and capabilities.
+
+  ## Arguments
+
+  - `--check` (optional): probe each backend for reachability
+    (default: false — just check key presence).
+
+  ## Steps
+
+  1. Enumerate the supported backends: `gemini`, `openai`,
+     `anthropic`, `o4-mini`.
+
+  2. For each backend, check:
+     - **API key**: present in the secrets layer?
+     - **Reachability** (if `--check`): send a minimal probe via
+       `second-opinion.review` with a trivial code snippet.
+     - **Features**: code review, screenshot review, session mode.
+
+  3. Report.
+
+  ## Output
+
+  ```
+  Second Opinion Backends
+
+  | Backend    | API Key | Status      | Features                    |
+  |------------|---------|-------------|-----------------------------|
+  | openai     | ✓       | reachable   | review, screenshot, session |
+  | gemini     | ✓       | reachable   | review, screenshot, session |
+  | anthropic  | ✓       | reachable   | review, session             |
+  | o4-mini    | ✗       | no API key  | review, session             |
+
+  Default backend: openai
+
+  To configure a backend:
+    /secrets:set OPENAI_API_KEY
+    /secrets:set GEMINI_API_KEY
+    /secrets:set ANTHROPIC_API_KEY
+  ```
+
+  ## Error handling
+
+  - **MCP server not running**: suggest `make mcp-up`.
+  - **All backends missing keys**: suggest `/secrets:ui` for setup.

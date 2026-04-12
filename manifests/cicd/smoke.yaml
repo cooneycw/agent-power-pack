@@ -1,0 +1,78 @@
+name: smoke
+family: cicd
+description: >-
+  Run a quick smoke test of the CI pipeline by triggering a build
+  on the current branch and monitoring its status.
+triggers:
+  - /cicd:smoke
+  - cicd smoke
+  - smoke test ci
+  - test pipeline
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: create_pipeline
+  - server: woodpecker
+    tool: get_pipeline
+  - server: woodpecker
+    tool: get_pipeline_logs
+attribution: null
+order: 40
+prompt: |
+  # /cicd:smoke — Smoke Test CI Pipeline
+
+  Trigger a pipeline run on the current branch and monitor it to
+  completion. Useful for verifying CI configuration changes.
+
+  ## Arguments
+
+  - `--branch` (optional): branch to build. Default: current branch.
+  - `--wait` (optional): wait for completion (default: true).
+  - `--timeout` (optional): max wait in seconds (default: 300).
+
+  ## Step 1: Ensure branch is pushed
+
+  ```bash
+  BRANCH=$(git branch --show-current)
+  git push -u origin "$BRANCH" 2>/dev/null || true
+  ```
+
+  ## Step 2: Trigger pipeline
+
+  Call `woodpecker.create_pipeline` with:
+  - `repo_id`: looked up from `woodpecker.list_repos` matching the
+    current repository.
+  - `branch`: the target branch.
+
+  Record the pipeline number.
+
+  ## Step 3: Monitor (if --wait)
+
+  Poll `woodpecker.get_pipeline` every 15 seconds until the pipeline
+  reaches a terminal state (success, failure, killed) or timeout.
+
+  ## Step 4: Report
+
+  ```
+  Pipeline #{number} — {status}
+
+    Branch:   {branch}
+    Duration: {duration}s
+    Steps:
+      ✓ lint      (12s)
+      ✓ test      (45s)
+      ✗ verify    (8s) — exit code 1
+
+  {If failed, show last 20 lines of the failing step's logs}
+  ```
+
+  ## Error handling
+
+  - **Repo not registered**: suggest registering in Woodpecker.
+  - **Branch not pushed**: push it automatically.
+  - **Timeout**: report partial status and pipeline URL.
+  - **Server unreachable**: suggest `/cicd:health`.
