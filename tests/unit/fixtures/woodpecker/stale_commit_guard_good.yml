@@ -1,0 +1,8 @@
+deploy:
+  steps:
+    - name: deploy-prod
+      image: alpine:3.19
+      commands:
+        - git fetch origin main
+        - "[ $(git rev-parse HEAD) = $(git rev-parse origin/main) ] || { echo 'Stale commit'; exit 1; }"
+        - ./deploy.sh production

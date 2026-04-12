@@ -1,0 +1,6 @@
+deploy:
+  steps:
+    - name: deploy-app
+      image: alpine:3.19
+      commands:
+        - ./deploy.sh production

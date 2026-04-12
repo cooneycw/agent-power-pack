@@ -1,0 +1,10 @@
+deploy:
+  concurrency:
+    limit: 1
+  labels:
+    env: production
+  steps:
+    - name: deploy-prod
+      image: alpine:3.19
+      commands:
+        - ./deploy.sh production

@@ -1,0 +1,10 @@
+build:
+  steps:
+    - name: test
+      image: python:latest
+      commands:
+        - pytest
+    - name: lint
+      image: golangci/golangci-lint:v1.57.2
+      commands:
+        - golangci-lint run
