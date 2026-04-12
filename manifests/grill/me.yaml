@@ -1,0 +1,31 @@
+# manifests/grill/me.yaml
+#
+# Vendored from mattpocock/skills — see ATTRIBUTION.md for license details.
+
+name: me
+family: grill
+description: >-
+  One-question-at-a-time interactive interrogation of a plan or design (vendored from mattpocock/skills).
+triggers:
+  - /grill:me
+  - grill me
+  - stress-test this plan
+  - interrogate my design
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution:
+  source: https://github.com/mattpocock/skills/tree/main/grill-me
+  commit_sha: "651eab033bdf8f7fd535c274f8cbe839075aba5e"
+  license: MIT
+  author: Matt Pocock
+order: 10
+prompt: |
+  Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+
+  Ask the questions one at a time.
+
+  If a question can be answered by exploring the codebase, explore the codebase instead.

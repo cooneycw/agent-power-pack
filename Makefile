@@ -27,7 +27,7 @@ test:
 	@echo "TODO: pytest"
 
 update-vendored-skills:
-	@echo "TODO: scripts/update_vendored_skills.py"
+	python scripts/update_vendored_skills.py
 
 secrets-sidecar-up:
 	docker compose up -d secrets-sidecar
