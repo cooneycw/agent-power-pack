@@ -1,0 +1,204 @@
+# manifests/flow/merge.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/merge.md.
+# Substitutions per agent-power-pack Constitution:
+#   - Issue close uses the active backend (plane.close_issue or gh issue close).
+#   - worktree-remove.sh external script replaced with inline 3-call safe
+#     removal (exit-verify-remove-verify pattern).
+#   - Added reminder to pull the plane-mcp update_issue path when available.
+
+name: merge
+family: flow
+description: >-
+  Merge the current branch's PR (squash), clean up the worktree and local
+  branch, close the linked issue on the active backend, and prune stale
+  references. Ends with the user in the main repo on main.
+triggers:
+  - /flow:merge
+  - flow merge
+  - merge pr
+  - land pr
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: plane
+    tool: close_issue
+  - server: plane
+    tool: update_issue
+attribution: null
+order: 60
+prompt: |
+  # /flow:merge — Merge PR, Clean Up Worktree, Close Issue
+
+  Merge the current branch's PR, clean up the worktree + local branch,
+  close the linked issue on the active backend, and prune stale refs.
+
+  ## Step 0: Detect issue backend (same as /flow:start)
+
+  Determine whether to close via Plane (`plane.close_issue`) or via `gh`.
+  Record the choice for Step 6.
+
+  ## Step 1: Detect context
+
+  ```bash
+  BRANCH=$(git branch --show-current)
+  REPO=$(basename "$(git rev-parse --show-toplevel)")
+  ISSUE_NUM=$(echo "$BRANCH" | grep -oP 'issue-\K[0-9]+' || echo "")
+
+  WORKTREE_PATH=$(pwd)
+  IS_WORKTREE=false
+  [[ -f ".git" ]] && IS_WORKTREE=true
+  ```
+
+  ## Step 2: Find and verify PR
+
+  ```bash
+  PR_JSON=$(gh pr list --head "$BRANCH" \
+    --json number,state,mergeable,reviewDecision,statusCheckRollup \
+    --jq '.[0]')
+  ```
+
+  - No PR → "No PR for `$BRANCH`. Run `/flow:finish` first."
+  - Already merged → "Already merged. Run cleanup only? [y/N]"
+  - Report mergeable, review decision, and check status before merging.
+
+  ## Step 3: Merge the PR
+
+  ```bash
+  PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
+  gh pr merge "$PR_NUMBER" --squash --delete-branch
+  ```
+
+  Squash-merge is the default; `--delete-branch` removes the remote.
+  If the merge fails (conflicts, failing checks), STOP and report.
+
+  ## Step 4: Update local main
+
+  ```bash
+  if [[ "$IS_WORKTREE" == true ]]; then
+      MAIN_REPO=$(cat .git | sed 's/gitdir: //' | sed 's|/.git/worktrees/.*||')
+  else
+      MAIN_REPO=$(pwd)
+  fi
+
+  git -C "$MAIN_REPO" checkout main
+  git -C "$MAIN_REPO" pull origin main
+  ```
+
+  ## Step 5: Clean up the worktree
+
+  **CRITICAL**: Never remove a worktree while `cwd` is inside it. Execute
+  the following as THREE separate Bash calls — the harness must observe
+  the `cd` succeed before the removal happens.
+
+  **5a — Exit the worktree (separate Bash call):**
+
+  ```bash
+  cd "$MAIN_REPO"
+  pwd
+  ```
+
+  **5b — Remove the worktree and branch (separate Bash call, AFTER 5a):**
+
+  ```bash
+  git worktree remove "$WORKTREE_PATH" --force
+  git branch -D "$BRANCH" 2>/dev/null || true
+  ```
+
+  **5c — Verify CWD is valid (separate Bash call):**
+
+  ```bash
+  pwd
+  git status
+  ```
+
+  If `git status` fails at 5c, the CWD was deleted — STOP and report
+  immediately; do not continue with any more commands.
+
+  If NOT in a worktree (plain branch in main repo), skip 5a/5b and
+  just:
+
+  ```bash
+  git branch -D "$BRANCH" 2>/dev/null || true
+  ```
+
+  ## Step 6: Close linked issue
+
+  ```bash
+  if [[ -n "$ISSUE_NUM" ]]; then
+      case "$BACKEND" in
+          plane)
+              # Call plane.close_issue via plane-mcp
+              # (MCP call; not a shell command)
+              ;;
+          github)
+              ISSUE_STATE=$(gh issue view "$ISSUE_NUM" \
+                --json state --jq '.state' 2>/dev/null)
+              if [[ "$ISSUE_STATE" == "OPEN" ]]; then
+                  gh issue close "$ISSUE_NUM" \
+                    --comment "Closed via /flow:merge — PR #${PR_NUMBER} merged."
+              fi
+              ;;
+      esac
+  fi
+  ```
+
+  The GitHub backend may have already auto-closed via the `Closes #N`
+  footer in the squash-merge commit message; only close explicitly if
+  the issue is still OPEN.
+
+  ## Step 7: Prune stale refs
+
+  ```bash
+  git -C "$MAIN_REPO" worktree prune
+
+  WORKTREE_BRANCHES=$(git -C "$MAIN_REPO" worktree list --porcelain \
+    | grep "^branch " | sed 's|branch refs/heads/||')
+
+  MERGED=$(git -C "$MAIN_REPO" branch --merged main \
+    | grep -v '^\*' | grep -v 'main$' | grep -v 'master$' \
+    | sed 's/^[ ]*//')
+
+  for b in $MERGED; do
+      echo "$WORKTREE_BRANCHES" | grep -q "^${b}$" && continue
+      git -C "$MAIN_REPO" branch -d "$b" 2>/dev/null \
+        && echo "Deleted merged branch: $b"
+  done
+
+  git -C "$MAIN_REPO" fetch --prune
+  ```
+
+  ## Step 8: Report
+
+  ```
+  PR #{NN} merged (squash)
+
+  Cleanup:
+    Remote branch deleted:      {branch}
+    Worktree removed:           {path}
+    Local branch deleted:       {branch}
+    Issue #{ISSUE} closed:      {backend}
+    Pruned worktree references: {count}
+    Deleted merged branches:    {count}
+    Pruned remote tracking:     done
+
+  Current directory: {main repo path} (main)
+  ```
+
+  ## Error handling
+
+  - **No PR**: direct user to `/flow:finish`.
+  - **Merge conflicts**: STOP, suggest manual resolution.
+  - **Checks failing**: STOP, ask whether to wait or force.
+  - **CWD deleted at 5c**: STOP — do not run any further commands.
+  - **Issue already closed**: skip close step silently.
+
+  ## Notes
+
+  - Squash-merge produces single-commit history.
+  - The remote branch is deleted by `gh pr merge --delete-branch`.
+  - After merge, the user ends up in the main repo on `main`.
+  - For a standalone cleanup (without merging), use `/flow:cleanup`.

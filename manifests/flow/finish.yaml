@@ -1,0 +1,230 @@
+# manifests/flow/finish.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/finish.md.
+# Substitutions per agent-power-pack Constitution:
+#   - `lib/cicd` / `lib/security` shell-outs replaced with native
+#     `agent-power-pack` CLI.
+#   - AGENTS.md drift + generated-file freshness handled by the
+#     `agents-md:lint` gate (Principle II + FR-004).
+#   - /docs:c4 publishes to Wiki.js via `wikijs.publish_c4` (FR-011).
+#   - Added grill-yourself gate (FR-008) fired on diff-size thresholds
+#     from .specify/grill-triggers.yaml or on touched-path allowlist.
+#   - Added optional second-opinion.review call before PR creation.
+#   - Closes #N footer uses the active issue backend (Plane ID or gh #N).
+
+name: finish
+family: flow
+description: >-
+  Run quality gates, fire grill-yourself if the diff exceeds thresholds,
+  run second-opinion review, commit, push, and open a pull request.
+triggers:
+  - /flow:finish
+  - flow finish
+  - ship this
+  - open pr
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: second-opinion
+    tool: grill_plan
+  - server: second-opinion
+    tool: review
+  - server: wikijs
+    tool: publish_c4
+  - server: plane
+    tool: update_issue
+attribution: null
+order: 50
+prompt: |
+  # /flow:finish — Quality Gates, Grill, Review, Commit, Push, PR
+
+  Take a worktree with implemented changes and ship it to a PR. Runs
+  every gate in order and stops at the first failure.
+
+  ## Step 1: Validate context
+
+  ```bash
+  BRANCH=$(git branch --show-current)
+  if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+      echo "ERROR: cannot finish from main. Run /flow:start first."
+      exit 1
+  fi
+  ISSUE_NUM=$(echo "$BRANCH" | grep -oP 'issue-\K[0-9]+' || echo "")
+  ```
+
+  ## Step 2: Grill-yourself gate (FR-008)
+
+  Evaluate `.specify/grill-triggers.yaml` (defaults: `max_lines: 200`,
+  `max_files: 5`) against the pending diff:
+
+  ```bash
+  LINES=$(git diff --numstat | awk '{s+=$1+$2} END {print s+0}')
+  FILES=$(git diff --name-only | wc -l)
+  ```
+
+  Grill-yourself fires when ANY of:
+
+  - `$LINES > max_lines` OR `$FILES > max_files`, OR
+  - The diff touches any path under `mcp_container/`, `manifests/`,
+    `adapters/`, `AGENTS.md`, `src/agent_power_pack/manifest/`, or
+    `.specify/memory/constitution.md`, OR
+  - The HEAD commit message contains the trailer `grill-yourself: force`.
+
+  Skip the gate when the HEAD commit message contains
+  `grill-yourself: skip` (explicit override).
+
+  **Preferred path** (when `second-opinion-mcp` is reachable): call
+  `second-opinion.grill_plan` with `plan = <summary of the diff + issue body>`.
+  **Fallback**: run the local `grill-yourself` skill inline.
+
+  Save the transcript to `.specify/grills/<YYYY-MM-DD>-issue-<N>.md`
+  (or `specs/<NNN>/grills/...` when a spec dir applies).
+
+  - Verdict `yes` → proceed to Step 3.
+  - Verdict `yes-with-caveats` → proceed; list caveats in the PR body.
+  - Verdict `no` → STOP. Surface blockers to the user.
+
+  Report: `Step 2: grill-yourself {fired|skipped}; verdict: {V}`.
+
+  ## Step 3: Run quality gates
+
+  ```bash
+  make verify
+  ```
+
+  `make verify` chains lint + tests + security quick scan + AGENTS.md
+  lint. If it fails, STOP with the failing command's output. Do NOT
+  proceed to commit.
+
+  ### 3a. AGENTS.md lint (redundant safety net)
+
+  If `make verify` doesn't include the AGENTS.md gate for some reason,
+  run it explicitly:
+
+  ```bash
+  agent-power-pack lint agents-md
+  ```
+
+  The linter will regenerate CLAUDE.md / GEMINI.md / .cursorrules if
+  drift was detected, and revert any hand-edits to those files.
+
+  ### 3b. Makefile completeness (non-blocking)
+
+  ```bash
+  agent-power-pack cicd check --summary 2>/dev/null || true
+  ```
+
+  Report missing targets as warnings; do NOT block the flow.
+
+  ## Step 4: C4 diagrams to Wiki.js (optional)
+
+  If the change touches `src/`, `adapters/`, or `mcp_container/`
+  structurally, regenerate the C4 diagrams and publish to Wiki.js:
+
+  ```bash
+  if command -v agent-power-pack >/dev/null 2>&1; then
+      agent-power-pack docs c4 --publish-to wikijs 2>/dev/null || true
+  fi
+  ```
+
+  Internally this calls `wikijs.publish_c4`. Skip silently if `wikijs-mcp`
+  is not configured. Legacy PowerPoint export (`/docs:pptx`) is NOT
+  available in v0.1.0 (FR-011) and must not be attempted.
+
+  ## Step 5: Commit any uncommitted changes
+
+  ```bash
+  git status --porcelain
+  ```
+
+  If there are uncommitted changes, commit them using conventional
+  commit format:
+
+  ```
+  {type}({scope}): {description}
+
+  {body}
+
+  Closes #{ISSUE_NUM}
+  Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+  ```
+
+  The `Closes #{N}` footer auto-closes the linked issue on merge for
+  the GitHub backend. For the Plane backend, we close explicitly in
+  `/flow:merge` Step 6.
+
+  ## Step 6: Push branch
+
+  ```bash
+  git push -u origin "$BRANCH"
+  ```
+
+  On push rejection, STOP and suggest `git pull --rebase origin "$BRANCH"`.
+
+  ## Step 7: Second-opinion review (optional)
+
+  If `second-opinion-mcp` is reachable, call `second-opinion.review`
+  with the PR diff plus the issue context. Capture the summary for the
+  PR body in Step 8. Skip silently if unreachable.
+
+  ## Step 8: Create PR
+
+  ```bash
+  EXISTING_PR=$(gh pr list --head "$BRANCH" --json number,url --jq '.[0]' 2>/dev/null)
+  ```
+
+  If a PR already exists, report the URL and STOP (use `gh pr edit`
+  separately to update).
+
+  Otherwise:
+
+  ```bash
+  gh pr create \
+    --title "{type}({scope}): {description} (Closes #{ISSUE_NUM})" \
+    --body "$(cat <<EOF
+  ## Summary
+
+  - {bullet 1}
+  - {bullet 2}
+
+  ## Quality gates
+
+  - [x] \`make verify\` passed
+  - [x] \`agents-md:lint\` passed
+  - [x] grill-yourself: {verdict} (transcript: {path or "skipped"})
+  - [x] second-opinion review: {short summary or "skipped"}
+
+  ## Test plan
+
+  - [ ] {verification step 1}
+
+  Closes #{ISSUE_NUM}
+
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+  EOF
+  )"
+  ```
+
+  ## Step 9: Report
+
+  ```
+  Flow Finish complete
+
+    Gates:          lint, test, security, agents-md:lint — all pass
+    Grill:          {fired/skipped}, verdict {yes/yes-with-caveats/no}
+    Second opinion: {reviewed/skipped}
+    Branch pushed:  {branch} → origin
+    PR opened:      {URL}
+  ```
+
+  ## Error handling
+
+  - **On main/master**: STOP at Step 1.
+  - **grill-yourself verdict `no`**: STOP at Step 2, surface blockers.
+  - **`make verify` fails**: STOP at Step 3, show failing step output.
+  - **agents-md:lint fails**: STOP at Step 3a with rule ID + subject.
+  - **Push rejected**: STOP at Step 6, suggest rebase.
+  - **PR already exists**: report URL and STOP.

@@ -1,0 +1,105 @@
+# manifests/flow/sync.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/sync.md (no
+# substantive changes — this command is backend-agnostic; it just
+# pushes to the remote for cross-machine pickup).
+
+name: sync
+family: flow
+description: >-
+  Push the current worktree's branch to the remote so work can be
+  resumed on another machine. Auto-commits any WIP as a squash-safe
+  wip commit. Optional feature — most loops don't need it.
+triggers:
+  - /flow:sync
+  - flow sync
+  - push wip
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 40
+prompt: |
+  # /flow:sync — Push WIP to Remote
+
+  Push the current branch to the origin remote so you can continue
+  work on another machine. `/flow:start <issue>` on the other machine
+  detects the remote branch and picks up seamlessly.
+
+  ## Step 1: Validate context
+
+  ```bash
+  git rev-parse --show-toplevel
+  BRANCH=$(git branch --show-current)
+  ```
+
+  - If on `main` or `master`: STOP. Report: "Cannot sync main. Use
+    `/flow:start <issue>` to create a worktree first."
+  - If not on an `issue-*` branch: warn but allow — the user may be
+    using a custom branch scheme.
+
+  ## Step 2: Handle uncommitted changes
+
+  ```bash
+  git status --short
+  ```
+
+  - **Clean**: skip to Step 3.
+  - **Dirty**: auto-commit as WIP.
+
+    ```bash
+    git add -A
+    git commit -m "wip: sync work in progress
+
+    Auto-committed by /flow:sync for cross-machine pickup.
+    Will be squash-merged — no need to clean up."
+    ```
+
+    Report: "Auto-committed WIP changes."
+
+  WIP commits are harmless because `/flow:merge` uses squash-merge,
+  collapsing every commit on the branch into one clean commit on
+  main.
+
+  ## Step 3: Push to remote
+
+  ```bash
+  git push -u origin "$BRANCH"
+  ```
+
+  If the push is rejected (likely because the remote has diverged),
+  report the error and suggest:
+
+  ```bash
+  git pull --rebase origin "$BRANCH"
+  ```
+
+  ## Step 4: Report
+
+  ```
+  Synced branch to remote.
+
+    Branch: {branch}
+    Remote: origin
+
+    To continue on another machine:
+      /flow:start {ISSUE_NUM}
+      → detects the remote branch and creates a worktree tracking it
+  ```
+
+  ## Error handling
+
+  - **Not in a git repo**: report error clearly.
+  - **On main**: block sync, suggest `/flow:start`.
+  - **Push rejected**: suggest `git pull --rebase`.
+  - **No remote `origin`**: report "No remote 'origin' found."
+
+  ## Notes
+
+  - Intentionally simple: commit WIP + push.
+  - `/flow:start` handles the receiving end (detects remote branches
+    and creates worktrees tracking them).
+  - No configuration required — works with any git remote.

@@ -1,0 +1,291 @@
+# manifests/flow/doctor.yaml
+#
+# Adapted from claude-power-pack .claude/commands/flow/doctor.md.
+# Substitutions and additions per agent-power-pack Constitution:
+#   - Replaces CPP_DIR discovery with native `agent-power-pack` CLI checks.
+#   - Adds: grill-me + grill-yourself skills installed, manifest
+#     validator runnable, AGENTS.md canonical + generated files in sync,
+#     MCP container (6 servers on 12 ports) reachable, aws-secretsmanager
+#     -agent sidecar healthy, Plane + Wiki.js connectivity via cpp:init
+#     --status, spec-kit structure (.specify/) present.
+#   - Drops Makefile template catalog (we ship our own template set in
+#     src/agent_power_pack/cpp_init/templates/).
+
+name: doctor
+family: flow
+description: >-
+  Diagnose the agent-power-pack workflow environment: git/gh/uv, repo
+  state, Makefile targets, skills, manifest validator, AGENTS.md
+  canonicalization, MCP container reachability on both transports,
+  secrets sidecar, Plane/Wiki.js connectivity, spec-kit structure, and
+  active worktrees.
+triggers:
+  - /flow:doctor
+  - flow doctor
+  - diagnose environment
+  - check setup
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 100
+prompt: |
+  # /flow:doctor — Diagnose Workflow Environment
+
+  Run every diagnostic check and produce a single structured report.
+  Read-only: never modifies anything.
+
+  ## Step 1: Environment prerequisites
+
+  ```bash
+  git --version        2>/dev/null && echo "PASS" || echo "FAIL"
+  gh --version         2>/dev/null && echo "PASS" || echo "FAIL"
+  gh auth status       2>/dev/null && echo "PASS" || echo "FAIL"
+  uv --version         2>/dev/null && echo "PASS" || echo "WARN (recommended)"
+  docker --version     2>/dev/null && echo "PASS" || echo "FAIL"
+  docker compose version 2>/dev/null && echo "PASS" || echo "FAIL"
+  command -v agent-power-pack 2>/dev/null && echo "PASS" || echo "WARN (not installed yet)"
+  ```
+
+  ## Step 2: Git repository state
+
+  ```bash
+  git rev-parse --show-toplevel 2>/dev/null || echo "NOT_A_REPO"
+  git remote get-url origin 2>/dev/null || echo "NO_REMOTE"
+  git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'
+  git config user.name  2>/dev/null || echo "NOT_SET"
+  git config user.email 2>/dev/null || echo "NOT_SET"
+  ```
+
+  ## Step 3: Spec-kit + constitution
+
+  ```bash
+  [ -f ".specify/memory/constitution.md" ] && echo "PASS constitution.md" || echo "FAIL missing"
+  [ -d ".specify/templates" ]             && echo "PASS templates"      || echo "FAIL missing"
+  [ -d "specs" ]                          && echo "PASS specs/"         || echo "WARN no features yet"
+  ```
+
+  ## Step 4: AGENTS.md canonicalization (Principle II)
+
+  ```bash
+  [ -f "AGENTS.md" ]      && echo "PASS AGENTS.md canonical" || echo "FAIL AGENTS.md missing"
+  [ -f "CLAUDE.md" ]      && echo "PASS CLAUDE.md generated" || echo "WARN not generated"
+  [ -f "GEMINI.md" ]      && echo "PASS GEMINI.md generated" || echo "WARN not generated"
+  [ -f ".cursorrules" ]   && echo "PASS .cursorrules generated" || echo "WARN not generated"
+  ```
+
+  If `agent-power-pack` is on `PATH`, also run:
+
+  ```bash
+  agent-power-pack lint agents-md --json 2>/dev/null || echo "lint unavailable"
+  ```
+
+  and summarize the `checks` array in the report.
+
+  ## Step 5: Manifest validator
+
+  ```bash
+  if command -v agent-power-pack >/dev/null 2>&1; then
+      MANIFEST_COUNT=$(find manifests -name '*.yaml' 2>/dev/null | wc -l)
+      agent-power-pack manifest validate 2>/dev/null
+      VALIDATE_EXIT=$?
+  fi
+  ```
+
+  Report the number of manifests found and whether the validator
+  passed. A failure means at least one skill does not cover every
+  first-class runtime (Principle I).
+
+  ## Step 6: Skills installed
+
+  ```bash
+  [ -d "$HOME/.claude/skills/grill-me" ]       && echo "PASS grill-me"       || echo "WARN grill-me not installed"
+  [ -d "$HOME/.claude/skills/grill-yourself" ] && echo "PASS grill-yourself" || echo "WARN grill-yourself not installed"
+
+  if [ -f "vendor/skills/grill-me/VERSION" ]; then
+      VENDORED_SHA=$(cat vendor/skills/grill-me/VERSION)
+      echo "PASS vendored grill-me @ $VENDORED_SHA"
+  else
+      echo "WARN vendored grill-me not present (expected after T072)"
+  fi
+  ```
+
+  ## Step 7: Makefile targets
+
+  ```bash
+  if [ -f "Makefile" ]; then
+      for target in install mcp-up mcp-down verify lint test update-vendored-skills secrets-sidecar-up; do
+          grep -q "^${target}:" Makefile && echo "PASS $target" || echo "FAIL $target"
+      done
+  else
+      echo "FAIL no Makefile"
+  fi
+  ```
+
+  ## Step 8: MCP container reachability (both transports)
+
+  Probe all six servers on BOTH transports (spec FR-005, Principle III):
+
+  ```bash
+  MCP_ISSUES=0
+  for entry in \
+      "8080:9100:second-opinion" \
+      "8081:9101:playwright-persistent" \
+      "8082:9102:plane" \
+      "8083:9103:wikijs" \
+      "8084:9104:nano-banana" \
+      "8085:9105:woodpecker" ; do
+      STDIO_PORT="${entry%%:*}"
+      REST="${entry#*:}"; SSE_PORT="${REST%%:*}"
+      NAME="${entry##*:}"
+
+      if curl -sf --max-time 2 "http://127.0.0.1:${STDIO_PORT}/healthz" >/dev/null 2>&1; then
+          STDIO_OK=1
+      else
+          STDIO_OK=0; MCP_ISSUES=$((MCP_ISSUES + 1))
+      fi
+
+      if curl -sf --max-time 2 "http://127.0.0.1:${SSE_PORT}/healthz" >/dev/null 2>&1; then
+          SSE_OK=1
+      else
+          SSE_OK=0; MCP_ISSUES=$((MCP_ISSUES + 1))
+      fi
+
+      echo "$NAME: stdio=$STDIO_PORT(${STDIO_OK}), sse=$SSE_PORT(${SSE_OK})"
+  done
+  ```
+
+  A server is "healthy" only when BOTH transports respond — per
+  Principle III every tool must be reachable via stdio (Claude) AND SSE
+  (Codex).
+
+  ## Step 9: AWS Secrets Manager sidecar
+
+  ```bash
+  if curl -sf --max-time 2 "http://127.0.0.1:2773/healthz" >/dev/null 2>&1; then
+      echo "PASS aws-secretsmanager-agent sidecar reachable"
+  else
+      echo "WARN sidecar unreachable (dev dotenv tier will be used)"
+  fi
+  ```
+
+  ## Step 10: Plane + Wiki.js connectivity
+
+  ```bash
+  if command -v agent-power-pack >/dev/null 2>&1; then
+      agent-power-pack init --status 2>/dev/null
+  fi
+  ```
+
+  `init --status` reports Plane + Wiki.js configured/unconfigured plus
+  the last connectivity-check timestamps and results.
+
+  ## Step 11: GitHub integration
+
+  ```bash
+  gh issue list --limit 1 --json number 2>/dev/null && echo "PASS issues" || echo "FAIL"
+  gh pr list   --limit 1 --json number 2>/dev/null && echo "PASS prs"    || echo "FAIL"
+  ```
+
+  ## Step 12: Active worktrees
+
+  Reuse `/flow:status` output logic (or just list worktrees inline):
+
+  ```bash
+  git worktree list
+  ```
+
+  ## Step 13: Generate report
+
+  ```markdown
+  ## Flow Doctor — {repo}
+
+  ### Environment
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | git / gh / uv / docker / docker compose / agent-power-pack CLI | | |
+
+  ### Repository
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | Git repo / remote / user identity | | |
+
+  ### Spec-kit + Constitution
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | .specify/memory/constitution.md / .specify/templates / specs/ | | |
+
+  ### AGENTS.md (Principle II)
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | AGENTS.md canonical / CLAUDE.md generated / GEMINI.md generated / .cursorrules generated / agents-md:lint | | |
+
+  ### Manifest validator (Principle I)
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | manifest count / validator exit | | |
+
+  ### Skills installed
+  | Check | Status | Details |
+  |-------|--------|---------|
+  | ~/.claude/skills/grill-me / ~/.claude/skills/grill-yourself / vendor/skills/grill-me @ SHA | | |
+
+  ### Makefile targets
+  | Target | Status |
+  |--------|--------|
+  | install, mcp-up, mcp-down, verify, lint, test, update-vendored-skills, secrets-sidecar-up | |
+
+  ### MCP container (Principle III — single container, multi-transport)
+  | Server | stdio port | SSE port | Status |
+  |--------|------------|----------|--------|
+  | second-opinion (8080/9100) | | | |
+  | playwright-persistent (8081/9101) | | | |
+  | plane (8082/9102) | | | |
+  | wikijs (8083/9103) | | | |
+  | nano-banana (8084/9104) | | | |
+  | woodpecker (8085/9105) | | | |
+
+  ### Secrets
+  | Check | Status |
+  |-------|--------|
+  | aws-secretsmanager-agent sidecar (:2773) | |
+
+  ### External systems
+  | Check | Status |
+  |-------|--------|
+  | Plane (cpp:init --status) | |
+  | Wiki.js (cpp:init --status) | |
+
+  ### GitHub integration
+  | Check | Status |
+  |-------|--------|
+  | list issues / list PRs | |
+
+  ### Active worktrees
+  *(reuse /flow:status output; "No active worktrees" if none)*
+
+  ### Actions needed
+
+  1. Any FAIL or WARN gets a numbered, actionable fix suggestion here.
+  ```
+
+  ## Status symbols
+
+  - ✅ PASS
+  - ⚠️  WARN (optional or not-yet-available)
+  - ❌ FAIL (required and missing)
+
+  ## Notes
+
+  - Read-only; never modifies anything.
+  - Skills not installed in `~/.claude/skills/` is a WARN, not a FAIL —
+    they're per-user and optional. The *vendored* copy under
+    `vendor/skills/` is the authoritative source.
+  - `agent-power-pack` CLI not on PATH is a WARN in early dogfooding
+    (before T026 lands) but becomes a FAIL after v0.1.0 release.
+  - The MCP container section requires `make mcp-up` to have been run.
+    If all 12 ports are unreachable, the most common fix is
+    `make mcp-up`.
