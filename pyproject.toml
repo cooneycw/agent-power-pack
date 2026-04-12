@@ -41,6 +41,15 @@ members = [
     "mcp_container",
 ]
 
+[project.scripts]
+agent-power-pack = "agent_power_pack.cli:main"
+
+[project.entry-points."agent_power_pack.adapters"]
+claude-code = "adapters.claude"
+codex-cli = "adapters.codex"
+gemini-cli = "adapters.gemini"
+cursor = "adapters.cursor"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
