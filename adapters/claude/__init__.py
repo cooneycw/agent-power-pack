@@ -26,10 +26,11 @@ def _render_skill_md(manifest: SkillManifest, manifest_source: str) -> str:
     # Build the trigger hint from the first trigger
     argument_hint = manifest.triggers[0] if manifest.triggers else f"/{manifest.family}:{manifest.name}"
 
+    namespaced = f"{manifest.family}-{manifest.name}"
     lines: list[str] = [
         _GENERATED_HEADER,
         "---",
-        f"name: {manifest.name}",
+        f"name: {namespaced}",
         f"description: {manifest.description}",
         f"argument-hint: {argument_hint}",
         "metadata:",
@@ -65,7 +66,8 @@ class ClaudeAdapter:
             base = target_dir / ".claude" / "skills"
 
         for manifest in manifests:
-            skill_dir = base / manifest.name
+            namespaced = f"{manifest.family}-{manifest.name}"
+            skill_dir = base / namespaced
             skill_file = skill_dir / "SKILL.md"
             manifest_source = f"manifests/{manifest.family}/{manifest.name}.yaml"
 
