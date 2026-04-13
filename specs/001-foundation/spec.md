@@ -179,6 +179,9 @@ exporter (`docs:pptx`) is removed.
 
 **Why this priority**: The substitutions are the user's stated direction but
 not blocking — `gh` issue access remains as an opt-in fallback adapter.
+During Phases 1–7 (bootstrap), GitHub Issues is the canonical backend
+because Plane is not yet configured. From Phase 8 onward, Plane becomes
+canonical and GitHub becomes read-only fallback (see FR-010a).
 
 **Independent Test**: Configure Plane and Wiki.js URLs/tokens via secrets;
 run `spec:sync` on a sample spec; confirm an issue lands in Plane and a
@@ -290,7 +293,17 @@ for per-runtime syntax).
 - **FR-009** `spec:sync` MUST publish spec artifacts to both Plane (as
   issues/cycles) and Wiki.js (as pages) when those integrations are configured.
 - **FR-010** The `issue:*` skill family MUST default to `plane-mcp`. A
-  `gh`-backed adapter MAY be enabled via opt-in flag.
+  `gh`-backed adapter MAY be enabled via opt-in flag. See FR-010a for the
+  phased ownership contract.
+- **FR-010a** Backlog ownership follows a phased model:
+  - **Phases 1–7** (bootstrap): GitHub Issues is the canonical backend.
+    All flow and project skills auto-detect this when `plane-mcp` is
+    not configured.
+  - **Phase 8+** (Plane configured): Plane is the canonical backend.
+    GitHub Issues becomes a read-only fallback. `spec:sync` publishes
+    to Plane; new issues are created in Plane only.
+  - At no point are both backends writable for the same repo.
+    `project:next` queries the single detected backend, never both.
 - **FR-011** `docs:c4` MUST publish to Wiki.js pages. `docs:pptx` MUST NOT
   exist in the v0.1.0 catalog.
 - **FR-012** The `sequential-thinking` skill MUST NOT exist in the catalog;
