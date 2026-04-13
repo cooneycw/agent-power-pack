@@ -35,10 +35,11 @@ _CODEX_STREAMABLE_HTTP_PORTS = {
 
 def _render_skill_md(manifest: SkillManifest, manifest_source: str) -> str:
     """Render a SKILL.md file for a single Codex skill."""
+    namespaced = f"{manifest.family}-{manifest.name}"
     lines: list[str] = [
         _GENERATED_HEADER,
         "---",
-        f"name: {manifest.name}",
+        f"name: {namespaced}",
         f"description: {manifest.description}",
     ]
 
@@ -167,7 +168,8 @@ class CodexAdapter:
             base = target_dir / ".agents" / "skills"
 
         for manifest in manifests:
-            skill_dir = base / manifest.name
+            namespaced = f"{manifest.family}-{manifest.name}"
+            skill_dir = base / namespaced
             skill_file = skill_dir / "SKILL.md"
             manifest_source = f"manifests/{manifest.family}/{manifest.name}.yaml"
 
