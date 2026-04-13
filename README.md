@@ -66,8 +66,8 @@ for per-runtime syntax:
 
 ```text
   ┌─────────────────────────────────────────────────────────┐
-  │  1. Pick an issue from the GitHub issue tracker         │
-  │     (labels: us1-us6, phase-N, p1/p2, parallel)         │
+  │  1. project:next  or  pick an issue from the active     │
+  │     backend (Plane if configured; GitHub otherwise)     │
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
@@ -77,7 +77,7 @@ for per-runtime syntax:
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  3. flow:start <issue-number>  (once US1 lands)          │
+  │  3. flow:start <issue-number>                            │
   │     — worktree + branch off main (see invocation matrix)│
   └────────────────────────┬────────────────────────────────┘
                            ↓
@@ -87,7 +87,7 @@ for per-runtime syntax:
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  5. second-opinion:start (once US3 lands)                │
+  │  5. second-opinion:start                                 │
   │     — external LLM review via second-opinion MCP        │
   └────────────────────────┬────────────────────────────────┘
                            ↓
@@ -98,7 +98,8 @@ for per-runtime syntax:
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  7. Merge → close issue (via gh / Plane / manual)       │
+  │  7. flow:merge — squash-merge PR, close the issue        │
+  │     via the active backend, clean up worktree           │
   └─────────────────────────────────────────────────────────┘
 ```
 
@@ -112,8 +113,36 @@ No feature is "done" until the foundation repo **itself** uses it:
 | **Phase 4 (US2)** — AGENTS.md lint | `.pre-commit-config.yaml` runs `agent-power-pack lint agents-md`; PRs that break the lint cannot merge. |
 | **Phase 5 (US3)** — MCP container | `.woodpecker.yml` invokes the in-repo `second-opinion` MCP tool on every PR for automated review. |
 | **Phase 6 (US4)** — `grill-yourself` gate | All `grill-yourself: skip` overrides are removed from the foundation PR; the real gate fires on itself. |
-| **Phase 8 (US6)** — Plane + Wiki.js defaults | `project:init` is used on this repo to configure Plane + Wiki.js; open GH issues sync to Plane via `spec:sync`; plan artifacts publish to Wiki.js automatically. |
+| **Phase 8 (US6)** — Plane + Wiki.js defaults | `project:init` configures Plane + Wiki.js; Plane becomes the canonical backlog; `spec:sync` publishes spec artifacts to both Plane (issues/cycles) and Wiki.js (pages). GitHub Issues remain as a read-only fallback (see [Backlog Source of Truth](#backlog-source-of-truth)). |
 | **Phase 9** — Woodpecker checklist | `.woodpecker.yml` passes `cicd:woodpecker-checklist` in validator mode; failing the checklist blocks the CI from finalizing. |
+
+### Backlog source of truth
+
+The project uses a **phased ownership model** for its issue backlog.
+All flow and project skills (`project:next`, `flow:start`,
+`flow:auto`, `flow:merge`) auto-detect the active backend at runtime:
+Plane if `plane-mcp` is configured and reachable, GitHub Issues
+otherwise.
+
+| Phase | Canonical backend | Sync direction | Notes |
+|---|---|---|---|
+| **Phases 1–7** (bootstrap) | **GitHub Issues** | N/A | Plane not yet configured; `gh` CLI is the only backend. |
+| **Phase 8** (US6 lands) | **Plane** | specs → Plane (via `spec:sync`); GitHub read-only fallback | `project:init` configures Plane; existing GitHub issues are one-time imported. New issues are created in Plane. |
+| **Phase 9+** (steady state) | **Plane** | Plane is authoritative; GitHub Issues disabled or archived | `gh` fallback adapter remains in code for repos that don't use Plane. |
+
+**ID mapping**: Issue numbers referenced in commit footers (`Closes #N`)
+always refer to the canonical backend for the current phase. During the
+Phase 8 transition, GitHub issue numbers continue to work via the
+`Closes #N` footer in PRs (GitHub auto-closes on merge). Plane issues
+are closed explicitly by `flow:merge` via `plane-mcp`.
+
+**`project:next` behavior**: Queries the detected backend only — never
+both. This means during Phases 1–7 it queries GitHub; from Phase 8
+onward it queries Plane. There is no cross-backend deduplication.
+
+**GitHub fallback**: The `gh` CLI fallback is opt-in for repos that
+haven't configured Plane. It is not a sync target — Plane and GitHub
+are never both writable at the same time for the same repo.
 
 ### What you can do TODAY (day 1 of implementation)
 

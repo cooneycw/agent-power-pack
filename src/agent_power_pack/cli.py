@@ -210,12 +210,12 @@ def docs(
             import subprocess
 
             try:
-                result = subprocess.run(
+                git_result = subprocess.run(
                     ["git", "remote", "get-url", "origin"],
                     capture_output=True, text=True, timeout=5,
                 )
-                if result.returncode == 0:
-                    project_name = result.stdout.strip().rstrip("/").split("/")[-1]
+                if git_result.returncode == 0:
+                    project_name = git_result.stdout.strip().rstrip("/").split("/")[-1]
                     if project_name.endswith(".git"):
                         project_name = project_name[:-4]
             except (subprocess.TimeoutExpired, FileNotFoundError):
