@@ -177,6 +177,128 @@ def lint(
 
 
 @app.command()
+def docs(
+    step: str = typer.Argument(..., help="Docs step: analyze."),
+    project_name: str = typer.Option(None, "--project", "-p", help="Project name for Wiki.js namespace."),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON output."),
+) -> None:
+    """Run documentation pipeline steps (analyze)."""
+    import json
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    if step == "analyze":
+        from agent_power_pack.docs.plan_generator import generate_plan, write_plan_yaml
+        from agent_power_pack.docs.signal_detector import build_proposals, detect_signals
+        from agent_power_pack.docs.theme_analyzer import analyze_theme, write_theme_yaml
+
+        project_root = Path.cwd()
+        theme_dir = project_root / "docs" / "theme"
+
+        # Detect project name
+        if not project_name:
+            import subprocess
+
+            try:
+                result = subprocess.run(
+                    ["git", "remote", "get-url", "origin"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if result.returncode == 0:
+                    project_name = result.stdout.strip().rstrip("/").split("/")[-1]
+                    if project_name.endswith(".git"):
+                        project_name = project_name[:-4]
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                pass
+            if not project_name:
+                project_name = project_root.name
+
+        console.print(f"[bold]docs:analyze[/bold] — project: {project_name}")
+
+        # Step 1: Analyze theme
+        console.print("\n[bold]Theme Analysis[/bold]")
+        theme = analyze_theme(theme_dir)
+        theme_path = theme_dir / "theme.yaml"
+        write_theme_yaml(theme, theme_path)
+        console.print(f"  Written: {theme_path}")
+
+        warnings = theme.get("_warnings", [])
+        if warnings:
+            for w in warnings:
+                console.print(f"  [yellow]Warning: {w}[/yellow]")
+
+        # Display theme summary
+        colors = theme.get("colors", {})
+        fonts = theme.get("fonts", {})
+        console.print(f"  Primary color:  {colors.get('primary', 'N/A')}")
+        console.print(f"  Heading font:   {fonts.get('heading', 'N/A')}")
+        console.print(f"  Body font:      {fonts.get('body', 'N/A')}")
+        if theme.get("logos"):
+            console.print(f"  Logos:          {', '.join(theme['logos'])}")
+
+        # Step 2: Detect signals
+        console.print("\n[bold]Signal Detection[/bold]")
+        signals = detect_signals(project_root)
+
+        # Load wiki structure if available
+        wiki_structure: dict | None = None  # type: ignore[type-arg]
+        wiki_path = project_root / "docs" / "wiki-structure.yaml"
+        if wiki_path.exists():
+            from ruamel.yaml import YAML
+            yaml = YAML()
+            with open(wiki_path) as f:
+                wiki_structure = yaml.load(f)
+
+        proposals = build_proposals(signals, project_name, wiki_structure)
+
+        if not proposals:
+            console.print("  [yellow]No documentation signals detected.[/yellow]")
+        else:
+            table = Table(title=f"{len(proposals)} Artifacts Proposed")
+            table.add_column("Type", style="bold")
+            table.add_column("Model")
+            table.add_column("Confidence")
+            table.add_column("Depth")
+            table.add_column("Signals")
+            for p in proposals:
+                table.add_row(
+                    p.type,
+                    p.model,
+                    f"{p.confidence:.0%}",
+                    p.depth,
+                    ", ".join(p.source_signals[:3]) + ("..." if len(p.source_signals) > 3 else ""),
+                )
+            console.print(table)
+
+        # Step 3: Generate plan
+        plan_path = project_root / "docs" / "plan.yaml"
+        plan = generate_plan(project_name, proposals, plan_path)
+        write_plan_yaml(plan, plan_path)
+        console.print(f"\n  Plan written: {plan_path}")
+        console.print(f"  Artifacts:    {len(plan.get('artifacts', []))}")
+
+        if json_output:
+            console.print(json.dumps({
+                "project": project_name,
+                "theme_path": str(theme_path),
+                "plan_path": str(plan_path),
+                "artifacts": len(plan.get("artifacts", [])),
+                "warnings": warnings,
+            }, indent=2))
+
+        console.print("\n[bold green]docs:analyze complete[/bold green]")
+        console.print("  Next: review docs/plan.yaml, then run /docs:auto")
+
+    else:
+        console.print(f"[red]Unknown docs step '{step}'. Valid: analyze[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def generate(
     target: str = typer.Argument(..., help="What to generate (e.g. claude-md, gemini-md, cursorrules)."),
 ) -> None:
