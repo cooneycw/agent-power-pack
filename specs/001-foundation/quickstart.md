@@ -88,9 +88,10 @@ make install RUNTIME=codex
 ```
 
 Produces `.agents/skills/<name>/SKILL.md` files (Codex-native skill
-discovery layout) and merges MCP server registrations into
-`~/.codex/config.toml`. Open a Codex CLI session in this directory and
-the skills are discovered automatically.
+discovery layout) and merges managed `mcp_servers` entries into
+`~/.codex/config.toml`, pointing Codex at the streamable HTTP MCP
+endpoints on ports `9100-9105`. Open a Codex CLI session in this
+directory and the skills are discovered automatically.
 
 ### Both concurrently
 

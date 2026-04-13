@@ -94,12 +94,15 @@ the source power-packs.
 
 ## Transport note
 
-Every tool above MUST be reachable via BOTH transports:
+Transport expectations are runtime-specific:
 
-- **stdio / non-streaming HTTP** on port `PORT_STDIO_<server>` (range
-  8080–8085 in v0.1.0).
-- **SSE / streamable** on port `PORT_SSE_<server>` (range 9100–9105 in
-  v0.1.0).
+- **Claude Code**: stdio / non-streaming HTTP on `PORT_STDIO_<server>`
+  (range 8080–8085 in v0.1.0).
+- **Codex CLI**: streamable HTTP on `PORT_SSE_<server>` (range 9100–9105
+  in v0.1.0), surfaced in `~/.codex/config.toml` via `mcp_servers`.
+- **SSE**: optional compatibility transport on the Codex-facing listener,
+  not the primary Codex contract.
 
 A tool is considered "implemented" only when `tests/e2e/test_dual_attach.py`
-confirms both transports return identical results for the same call.
+confirms the Claude-facing and Codex-facing transports return identical
+results for the same call.

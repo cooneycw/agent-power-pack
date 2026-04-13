@@ -104,8 +104,8 @@ class TestCodexAdapter:
         # User section preserved
         assert '[user]' in content
         assert 'name = "test"' in content
-        # Our MCP sections added (only for manifests with mcp_tools)
-        assert "agent-power-pack" in content
+        assert '[mcp_servers."agent-power-pack-' in content
+        assert 'url = "http://127.0.0.1:' in content
 
     def test_user_mode_config_toml_created_fresh(self, tmp_path: Path, manifests, adapter):
         """If config.toml doesn't exist, create it with only our sections."""
@@ -118,7 +118,8 @@ class TestCodexAdapter:
         config = fake_home / ".codex" / "config.toml"
         assert config.exists()
         content = config.read_text()
-        assert "agent-power-pack" in content
+        assert '[mcp_servers."agent-power-pack-' in content
+        assert "mcp.servers" not in content
 
     def test_user_mode_config_toml_idempotent(self, tmp_path: Path, manifests, adapter):
         """Second user-mode install should not change config.toml."""
@@ -134,3 +135,27 @@ class TestCodexAdapter:
             second_content = config.read_text()
 
         assert first_content == second_content
+
+    def test_user_mode_replaces_legacy_mcp_servers_block(self, tmp_path: Path, manifests, adapter):
+        """Legacy managed [mcp.servers.*] blocks should be replaced cleanly."""
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        codex_dir = fake_home / ".codex"
+        codex_dir.mkdir()
+
+        config = codex_dir / "config.toml"
+        config.write_text(
+            '[user]\n'
+            'name = "test"\n\n'
+            "# agent-power-pack managed MCP servers — do not hand-edit this section\n"
+            '[mcp.servers."agent-power-pack-plane"]\n'
+            'tools = ["list_workspaces"]\n'
+        )
+
+        with patch("adapters.codex.Path.home", return_value=fake_home):
+            adapter.install(manifests, fake_home, mode="user")
+
+        content = config.read_text()
+        assert '[user]' in content
+        assert '[mcp_servers."agent-power-pack-plane"]' in content
+        assert '[mcp.servers."agent-power-pack-plane"]' not in content

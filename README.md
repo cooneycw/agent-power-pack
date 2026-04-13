@@ -20,8 +20,9 @@ Short version, per the [Constitution](./.specify/memory/constitution.md):
   reverts hand-edits to the generated files.
 - **Single MCP container.** One Docker image hosts `second-opinion`,
   `plane`, `wikijs`, `nano-banana`, `playwright`, and `woodpecker`,
-  each exposed on both a stdio port (Claude Code) and an SSE port
-  (Codex CLI).
+  each exposed on both a stdio/non-streaming HTTP port (Claude Code)
+  and a streamable HTTP port (Codex CLI; SSE may remain available for
+  compatibility on the high-port listener).
 - **Plane replaces GitHub Issues** and **Wiki.js replaces
   Confluence-style docs** as the preferred — and default — external
   tools. `gh` issue access remains available as an opt-in fallback.

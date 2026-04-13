@@ -80,9 +80,12 @@ class InstallReport:
   additionally merges MCP server registrations into
   `~/.codex/config.toml` using a conservative three-way merge
   (preserve existing sections; update only `[mcp_servers."agent-power-pack-*"]`
-  keys we own).
-- MUST NOT create `~/.codex/config.toml` if it does not exist; instead,
-  write a fresh file with only our sections.
+  entries we own).
+- Managed Codex MCP entries MUST point at streamable HTTP endpoints for the
+  bundled servers; SSE may remain available as a compatibility transport but
+  is not the primary Codex contract.
+- If `~/.codex/config.toml` does not exist, create it with only the managed
+  `mcp_servers` block.
 
 ### `gemini-cli` (v0.1.0 stub)
 
