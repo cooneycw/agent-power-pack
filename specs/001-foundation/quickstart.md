@@ -87,9 +87,10 @@ Code and the skills appear in the slash-command palette.
 make install RUNTIME=codex
 ```
 
-Produces `.codex/skills/` and merges MCP server registrations into
+Produces `.agents/skills/<name>/SKILL.md` files (Codex-native skill
+discovery layout) and merges MCP server registrations into
 `~/.codex/config.toml`. Open a Codex CLI session in this directory and
-the skills appear as `$apppack-*` style prompt triggers.
+the skills are discovered automatically.
 
 ### Both concurrently
 

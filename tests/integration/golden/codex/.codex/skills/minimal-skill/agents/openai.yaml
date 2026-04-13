@@ -1,7 +1,0 @@
-name: minimal-skill
-family: flow
-description: A minimal skill for testing — no MCP tools, no attribution.
-triggers:
-- /flow:minimal-skill
-- minimal skill
-mcp_tools: []
