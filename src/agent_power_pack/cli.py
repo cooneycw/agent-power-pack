@@ -127,7 +127,45 @@ def lint(
     fix: bool = typer.Option(False, "--fix", help="Auto-fix what can be fixed."),
 ) -> None:
     """Run linters (agents-md:lint)."""
-    typer.echo(f"lint: target={target}, json={json_output}, fix={fix} [stub]")
+    import json
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.table import Table
+
+    from agent_power_pack.linter.agents_md import lint_agents_md
+
+    console = Console()
+
+    if target != "agents-md":
+        console.print(f"[red]Unknown lint target '{target}'. Valid: agents-md[/red]")
+        raise typer.Exit(code=1)
+
+    result = lint_agents_md(Path.cwd(), fix=fix)
+
+    if json_output:
+        console.print(json.dumps(result.model_dump(), indent=2))
+    else:
+        table = Table(title="AGENTS.md Lint")
+        table.add_column("Rule", style="bold")
+        table.add_column("Status")
+        table.add_column("Subject")
+        table.add_column("Message")
+        for check in result.checks:
+            style = {"pass": "green", "fail": "red", "warn": "yellow"}[check.status]
+            table.add_row(
+                check.rule_id,
+                f"[{style}]{check.status}[/{style}]",
+                check.subject or "",
+                check.message,
+            )
+        console.print(table)
+        console.print(
+            f"\nOverall: [{'red' if result.status == 'fail' else 'green'}]{result.status}[/]"
+        )
+
+    if result.status == "fail":
+        raise typer.Exit(code=1)
 
 
 @app.command()

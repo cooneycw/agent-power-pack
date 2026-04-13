@@ -1,6 +1,6 @@
 [project]
 name = "agent-power-pack"
-version = "0.0.1"
+version = "0.1.0"
 description = "Universal agentic power pack for Claude Code, Codex CLI, Gemini CLI, and Cursor"
 requires-python = ">=3.11"
 dependencies = [
