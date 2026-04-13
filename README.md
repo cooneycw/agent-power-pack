@@ -4,7 +4,7 @@
 > Claude Code, Codex CLI, Gemini CLI, and Cursor from a single source of
 > truth.
 
-**Status**: foundation (v0.1.0 in-progress). Successor to and unification
+**Status**: foundation (v0.1.0). Successor to and unification
 of [`cooneycw/claude-power-pack`](https://github.com/cooneycw/claude-power-pack)
 and [`cooneycw/codex-power-pack`](https://github.com/cooneycw/codex-power-pack).
 
