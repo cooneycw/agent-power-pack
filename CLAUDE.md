@@ -1,5 +1,5 @@
 <!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->
-<!-- source-hash: 3bc94410fc90edec5d350a4aa5358c827c6555918afc77dd15740092ef636132 -->
+<!-- source-hash: 9b4008755186e664aecc25f7160838e63b330e0e7879e9988c0ccd288856184c -->
 # AGENTS.md
 
 Canonical instruction file for agent-power-pack. All runtime-specific files
@@ -27,6 +27,9 @@ Before merging any PR, the following must pass:
 
 - If `make install` fails with "RUNTIME is required", pass the runtime:
   `make install RUNTIME=claude-code`
+- For Codex, `make install RUNTIME=codex` installs repo-local skills and
+  `make install-codex-user` writes managed `mcp_servers` entries to
+  `~/.codex/config.toml`.
 - If MCP container health checks fail, ensure Docker is running and ports
   8080-8085 are free.
 - If `make mcp-up` fails, check that `compose.yaml` is present and
@@ -37,6 +40,7 @@ Before merging any PR, the following must pass:
 | Command | Description |
 |---|---|
 | `make install` | Install skill catalog for a given runtime |
+| `make install-codex-user` | Install Codex MCP registrations into user config |
 | `make mcp-up` | Start MCP container and secrets sidecar |
 | `make mcp-down` | Stop all containers |
 | `make mcp-health` | Health-check MCP server ports |

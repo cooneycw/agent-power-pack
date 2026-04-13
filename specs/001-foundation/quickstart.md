@@ -87,11 +87,19 @@ Code and the skills appear in the slash-command palette.
 make install RUNTIME=codex
 ```
 
-Produces `.agents/skills/<name>/SKILL.md` files (Codex-native skill
-discovery layout) and merges managed `mcp_servers` entries into
-`~/.codex/config.toml`, pointing Codex at the streamable HTTP MCP
-endpoints on ports `9100-9105`. Open a Codex CLI session in this
-directory and the skills are discovered automatically.
+Produces `.agents/skills/<name>/SKILL.md` files in the repository
+(Codex-native skill discovery layout). This is the project-scoped
+install path.
+
+If you also want Codex MCP registrations in your user config, run:
+
+```bash
+make install-codex-user
+```
+
+That writes managed `mcp_servers` entries into `~/.codex/config.toml`,
+pointing Codex at the streamable HTTP MCP endpoints on ports
+`9100-9105`.
 
 ### Both concurrently
 

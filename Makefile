@@ -1,10 +1,13 @@
-.PHONY: install mcp-up mcp-down mcp-health verify lint test test-codex-smoke update-vendored-skills secrets-sidecar-up
+.PHONY: install install-codex-user mcp-up mcp-down mcp-health verify lint test test-codex-smoke update-vendored-skills secrets-sidecar-up
 
 install:
 ifndef RUNTIME
 	$(error RUNTIME is required. Usage: make install RUNTIME=claude-code)
 endif
 	uv run agent-power-pack install $(RUNTIME) --target-dir "$(CURDIR)" --manifests "$(CURDIR)/manifests"
+
+install-codex-user:
+	uv run agent-power-pack install codex-cli --mode user --target-dir "$(CURDIR)" --manifests "$(CURDIR)/manifests"
 
 mcp-up:
 	docker compose up -d mcp secrets-sidecar

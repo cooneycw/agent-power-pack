@@ -25,6 +25,9 @@ Before merging any PR, the following must pass:
 
 - If `make install` fails with "RUNTIME is required", pass the runtime:
   `make install RUNTIME=claude-code`
+- For Codex, `make install RUNTIME=codex` installs repo-local skills and
+  `make install-codex-user` writes managed `mcp_servers` entries to
+  `~/.codex/config.toml`.
 - If MCP container health checks fail, ensure Docker is running and ports
   8080-8085 are free.
 - If `make mcp-up` fails, check that `compose.yaml` is present and
@@ -35,6 +38,7 @@ Before merging any PR, the following must pass:
 | Command | Description |
 |---|---|
 | `make install` | Install skill catalog for a given runtime |
+| `make install-codex-user` | Install Codex MCP registrations into user config |
 | `make mcp-up` | Start MCP container and secrets sidecar |
 | `make mcp-down` | Stop all containers |
 | `make mcp-health` | Health-check MCP server ports |

@@ -16,6 +16,13 @@ app = typer.Typer(
 )
 
 
+_RUNTIME_ALIASES = {
+    "claude": "claude-code",
+    "codex": "codex-cli",
+    "gemini": "gemini-cli",
+}
+
+
 @app.callback()
 def _main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
@@ -44,6 +51,7 @@ def install(
     from agent_power_pack.manifest.loader import load_all_manifests
 
     console = Console()
+    runtime = _RUNTIME_ALIASES.get(runtime, runtime)
 
     # Adapter registry — keyed by runtime_id
     adapter_map: dict[str, type] = {}

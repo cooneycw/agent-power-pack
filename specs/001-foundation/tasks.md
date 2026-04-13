@@ -73,7 +73,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 
 **Goal**: A developer can run `make install RUNTIME=<claude|codex>` on a fresh repo and get a working skill catalog in the runtime's native layout, with no manual editing. Gemini and Cursor adapters are stubs that fail fast.
 
-**Independent Test**: `make install RUNTIME=claude` and `make install RUNTIME=codex` against a fixed set of 3 manifests each produce a file tree matching the golden fixtures byte-for-byte; a second invocation produces no diff.
+**Independent Test**: `make install RUNTIME=claude` and `make install RUNTIME=codex` against a fixed set of 3 manifests each produce a file tree matching the golden fixtures byte-for-byte; a second invocation produces no diff. `make install-codex-user` writes managed `mcp_servers` entries to `~/.codex/config.toml` without disturbing non-agent-power-pack content.
 
 - [ ] T021 [P] [US1] Create three fixture manifests under `tests/integration/fixtures/manifests/` (one minimal, one with `mcp_tools`, one with `attribution`) covering the edge cases listed in `contracts/runtime-adapter.interface.md`.
 - [ ] T022 [P] [US1] Implement the Claude adapter in `adapters/claude/__init__.py` per `contracts/runtime-adapter.interface.md` — writes `target_dir/.claude/skills/<name>/SKILL.md` with YAML frontmatter, project + user modes.

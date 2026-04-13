@@ -48,7 +48,9 @@ git clone https://github.com/cooneycw/agent-power-pack.git
 cd agent-power-pack
 uv sync
 make mcp-up                      # single container + aws secrets sidecar
-make install RUNTIME=claude      # or RUNTIME=codex
+make install RUNTIME=claude      # project-local Claude install
+make install RUNTIME=codex       # project-local Codex skill install
+make install-codex-user          # optional: write ~/.codex/config.toml mcp_servers
 ```
 
 See [`specs/001-foundation/quickstart.md`](./specs/001-foundation/quickstart.md)
