@@ -30,7 +30,7 @@ Short version, per the [Constitution](./.specify/memory/constitution.md):
   [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/grill-me))
   and **`grill-yourself`** (native pre-flight self-interrogation) are
   first-class members of the catalog. `grill-yourself` auto-fires as a
-  `/flow:finish` gate on changes that exceed a configurable diff-size
+  `flow:finish` gate on changes that exceed a configurable diff-size
   threshold.
 
 Read the full picture in
@@ -59,7 +59,10 @@ for the full 9-step walkthrough.
 ## Dogfooding loop — how this project builds itself
 
 agent-power-pack is built with the same tooling it ships. Every
-contributor (including future-you) works an issue through this loop:
+contributor (including future-you) works an issue through this loop.
+Skill names below are conceptual — each runtime invokes them differently;
+see the [Runtime Invocation Matrix](./specs/001-foundation/contracts/runtime-invocation-matrix.md)
+for per-runtime syntax:
 
 ```text
   ┌─────────────────────────────────────────────────────────┐
@@ -74,8 +77,8 @@ contributor (including future-you) works an issue through this loop:
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  3. /flow:start <issue-number>  (once US1 lands)        │
-  │     — worktree + branch off main                        │
+  │  3. flow:start <issue-number>  (once US1 lands)          │
+  │     — worktree + branch off main (see invocation matrix)│
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
@@ -84,12 +87,12 @@ contributor (including future-you) works an issue through this loop:
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  5. /second-opinion:start (once US3 lands)              │
+  │  5. second-opinion:start (once US3 lands)                │
   │     — external LLM review via second-opinion MCP        │
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  6. /flow:finish                                         │
+  │  6. flow:finish                                           │
   │     — runs agents-md:lint, make verify, grill-yourself  │
   │       gate if diff > thresholds, opens the PR           │
   └────────────────────────┬────────────────────────────────┘
@@ -109,7 +112,7 @@ No feature is "done" until the foundation repo **itself** uses it:
 | **Phase 4 (US2)** — AGENTS.md lint | `.pre-commit-config.yaml` runs `agent-power-pack lint agents-md`; PRs that break the lint cannot merge. |
 | **Phase 5 (US3)** — MCP container | `.woodpecker.yml` invokes the in-repo `second-opinion` MCP tool on every PR for automated review. |
 | **Phase 6 (US4)** — `grill-yourself` gate | All `grill-yourself: skip` overrides are removed from the foundation PR; the real gate fires on itself. |
-| **Phase 8 (US6)** — Plane + Wiki.js defaults | `project:init` is used on this repo to configure Plane + Wiki.js; open GH issues sync to Plane via `/spec:sync`; plan artifacts publish to Wiki.js automatically. |
+| **Phase 8 (US6)** — Plane + Wiki.js defaults | `project:init` is used on this repo to configure Plane + Wiki.js; open GH issues sync to Plane via `spec:sync`; plan artifacts publish to Wiki.js automatically. |
 | **Phase 9** — Woodpecker checklist | `.woodpecker.yml` passes `cicd:woodpecker-checklist` in validator mode; failing the checklist blocks the CI from finalizing. |
 
 ### What you can do TODAY (day 1 of implementation)
@@ -117,9 +120,9 @@ No feature is "done" until the foundation repo **itself** uses it:
 Even before any of the in-repo tooling exists, you can dogfood with
 three things you already have:
 
-1. **spec-kit itself.** Every non-trivial change starts with
-   `/speckit-specify` in a new `specs/00N-<slug>/` directory, not direct
-   edits. The `001-foundation` spec is the example to follow.
+1. **spec-kit itself.** Every non-trivial change starts with a
+   spec-kit specify pass in a new `specs/00N-<slug>/` directory, not
+   direct edits. The `001-foundation` spec is the example to follow.
 2. **`grill-me` and `grill-yourself` skills installed under
    `~/.claude/skills/`.** Both are available immediately for any
    Claude Code session working in this repo. Invoke `grill-me` when you
@@ -128,10 +131,10 @@ three things you already have:
    project will vendor (`grill-me`) and author (`grill-yourself`) —
    you're grilling in the same style that Phase 6 and Phase 7 codify.
 3. **`claude-power-pack` installed globally (optional).** If you have
-   it, the `/flow:start`, `/flow:check`, `/flow:finish`, and
-   `/second-opinion:start` commands work TODAY with this repo as the
-   target. That's the truest dogfood: the predecessor building the
-   successor.
+   it, the `flow:start`, `flow:check`, `flow:finish`, and
+   `second-opinion:start` skills work TODAY with this repo as the
+   target (invoked via Claude Code slash commands). That's the truest
+   dogfood: the predecessor building the successor.
 
 ## Project layout
 

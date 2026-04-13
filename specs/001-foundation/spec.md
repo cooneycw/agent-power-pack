@@ -38,14 +38,16 @@ useless if a developer can't install on their preferred runtime.
 **Independent Test**: From a clean directory, run `make install RUNTIME=claude`,
 then again with `RUNTIME=codex`, then `RUNTIME=gemini`, then `RUNTIME=cursor`.
 Each install MUST produce a working skill catalog visible to that runtime,
-with no manual editing. Smoke test: invoke `/agents-md:lint` (or equivalent
-runtime trigger) on each and confirm identical output.
+with no manual editing. Smoke test: invoke `agents-md:lint` on each runtime
+using that runtime's native invocation pattern (see
+[Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md)) and
+confirm identical output.
 
 **Acceptance Scenarios**:
 
 1. **Given** an empty repo, **When** `make install RUNTIME=claude` runs,
    **Then** `.claude/skills/` is populated, `CLAUDE.md` is generated from
-   `AGENTS.md`, and `claude --print "/agents-md:lint"` returns a clean lint.
+   `AGENTS.md`, and `agent-power-pack lint agents-md` returns a clean lint.
 2. **Given** the same repo, **When** `make install RUNTIME=codex` runs after,
    **Then** `.codex/skills/` and `~/.codex/config.toml` are populated and
    the codex skill catalog matches the claude one.
@@ -57,7 +59,7 @@ runtime trigger) on each and confirm identical output.
 ### User Story 2 — AGENTS.md is canonical, all other instruction files are generated (Priority: P1)
 
 A developer edits `AGENTS.md` to add a new Make target reference. On the next
-`/flow:check`, `agents-md:lint` verifies the target exists in the Makefile,
+`flow:check`, `agents-md:lint` verifies the target exists in the Makefile,
 regenerates `CLAUDE.md` / `GEMINI.md` / `.cursorrules` from `AGENTS.md`, and
 fails the check if any generated file is stale or any referenced target,
 command, Docker service, or CI file is missing.
@@ -67,8 +69,9 @@ infrastructure" is enforcement. Without P1 status, drift returns and the
 linter becomes advice nobody reads.
 
 **Independent Test**: Edit `AGENTS.md` to reference a Make target that does
-not exist; run `/agents-md:lint`; confirm exit code is non-zero and the
-message names the missing target. Add the target; rerun; confirm clean.
+not exist; run `agent-power-pack lint agents-md`; confirm exit code is
+non-zero and the message names the missing target. Add the target; rerun;
+confirm clean.
 
 **Acceptance Scenarios**:
 
@@ -114,7 +117,7 @@ Codex CLI session at the same container concurrently; both invoke a
 
 ### User Story 4 — Grill-yourself runs before risky changes (Priority: P2)
 
-Before any `/flow:finish` that touches the MCP container, the skill manifest
+Before any `flow:finish` that touches the MCP container, the skill manifest
 format, or `AGENTS.md` itself, `grill-yourself` automatically generates a list
 of pre-flight questions, answers them, and attaches the transcript to the PR.
 The user can also invoke `grill-yourself` manually on any plan.
@@ -123,14 +126,16 @@ The user can also invoke `grill-yourself` manually on any plan.
 project ships without it if needed — the gate is enforcement of an
 already-valuable practice.
 
-**Independent Test**: Open a PR that edits `AGENTS.md`; `/flow:finish`;
-confirm the grill-yourself transcript is in the PR description.
+**Independent Test**: Open a PR that edits `AGENTS.md`; run
+`agent-power-pack flow finish`; confirm the grill-yourself transcript is in
+the PR description.
 
 **Acceptance Scenarios**:
 
-1. **Given** a PR touching `mcp-container/`, **When** `/flow:finish` runs,
+1. **Given** a PR touching `mcp-container/`, **When** `flow:finish` runs
+   (via any runtime — see [Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md)),
    **Then** a `grill-yourself` transcript is generated and attached.
-2. **Given** a PR touching only README typos, **When** `/flow:finish` runs,
+2. **Given** a PR touching only README typos, **When** `flow:finish` runs,
    **Then** `grill-yourself` is skipped.
 3. **Given** a user invokes `grill-yourself` manually with a plan,
    **Then** the agent produces and answers ≥5 grill questions.
@@ -139,7 +144,9 @@ confirm the grill-yourself transcript is in the PR description.
 
 ### User Story 5 — Grill-me available for interactive user interrogation (Priority: P2)
 
-A user types `grill me on this plan` (or `/grill:me`) and the agent invokes
+A user invokes the `grill:me` skill (see
+[Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md) for
+per-runtime syntax) and the agent invokes
 the vendored `grill-me` skill from mattpocock/skills, walking the decision
 tree one question at a time until shared understanding is reached.
 Attribution is preserved in `ATTRIBUTION.md` and the skill manifest header.
@@ -147,12 +154,12 @@ Attribution is preserved in `ATTRIBUTION.md` and the skill manifest header.
 **Why this priority**: High user value but parallel to grill-yourself; either
 can ship first.
 
-**Independent Test**: Trigger `/grill:me` with a plan; confirm the agent asks
-sequential single-question rounds and produces a final summary.
+**Independent Test**: Trigger `grill:me` with a plan on each runtime; confirm
+the agent asks sequential single-question rounds and produces a final summary.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user invokes `/grill:me`, **When** they describe a plan,
+1. **Given** the user invokes `grill:me`, **When** they describe a plan,
    **Then** the agent asks one question at a time with a recommended answer.
 2. **Given** the skill is installed, **When** `cat skills/grill-me/SKILL.md`
    is shown, **Then** the file header credits
@@ -164,26 +171,26 @@ sequential single-question rounds and produces a final summary.
 
 ### User Story 6 — Plane is the default issue tracker, Wiki.js the default knowledge base (Priority: P2)
 
-`/spec:sync` mirrors specs to a configured Plane workspace as issues/cycles
-and to a configured Wiki.js space as pages. `/issue:*` (renamed from
-`/github:issue-*`) operates on Plane via `plane-mcp`. `/docs:c4` publishes
-C4 architecture diagrams directly to Wiki.js pages. The PowerPoint exporter
-(`/docs:pptx`) is removed.
+`spec:sync` mirrors specs to a configured Plane workspace as issues/cycles
+and to a configured Wiki.js space as pages. The `issue:*` family (renamed from
+the former `github:issue-*`) operates on Plane via `plane-mcp`. `docs:c4`
+publishes C4 architecture diagrams directly to Wiki.js pages. The PowerPoint
+exporter (`docs:pptx`) is removed.
 
 **Why this priority**: The substitutions are the user's stated direction but
 not blocking — `gh` issue access remains as an opt-in fallback adapter.
 
 **Independent Test**: Configure Plane and Wiki.js URLs/tokens via secrets;
-run `/spec:sync` on a sample spec; confirm an issue lands in Plane and a
+run `spec:sync` on a sample spec; confirm an issue lands in Plane and a
 page lands in Wiki.js.
 
 **Acceptance Scenarios**:
 
-1. **Given** valid Plane credentials, **When** `/issue:create` runs,
+1. **Given** valid Plane credentials, **When** `issue:create` runs,
    **Then** an issue is created in the configured Plane workspace.
-2. **Given** valid Wiki.js credentials, **When** `/docs:c4 publish` runs
+2. **Given** valid Wiki.js credentials, **When** `docs:c4 publish` runs
    on a diagram source, **Then** a wiki page is created or updated.
-3. **Given** `/docs:pptx` is invoked, **When** any runtime runs it,
+3. **Given** `docs:pptx` is invoked, **When** any runtime runs it,
    **Then** the skill is reported missing (removed from the catalog).
 
 ---
@@ -205,7 +212,9 @@ for velocity.
 valid `AGENTS.md`, generated runtime files, and a stub `Makefile` that
 passes `agents-md:lint`, with no Plane/Wiki.js prompts. (b) `project:next`
 in a repo with 10 open issues (5 `p1`, 5 `p2`, 2 blocked) returns a `p1`
-unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
+unblocked issue with a ready-to-paste `flow:start <N>` invocation
+(see [Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md)
+for per-runtime syntax).
 
 **Acceptance Scenarios**:
 
@@ -219,7 +228,7 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
    with `blockedBy` dependencies resolved and some not, **When**
    `project:next` runs, **Then** the recommended issue is a `p1` issue
    whose dependencies are all closed, and the output ends with
-   `/flow:start <N>`.
+   `flow:start <N>` (see [Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md)).
 4. **Given** `project:next --top 3` runs, **Then** the output shows three
    candidates ranked by priority × unblocked × phase.
 5. **Given** the Plane backend is configured, **When** `project:next` runs,
@@ -233,7 +242,7 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   `make install` fails fast with a clear "no adapter for RUNTIME=foo" error.
 - `AGENTS.md` is deleted → `agents-md:lint` fails with "missing canonical
   source" before checking sections.
-- The MCP container starts but Plane is unreachable → `/issue:*` skills
+- The MCP container starts but Plane is unreachable → `issue:*` skills
   return a structured error referencing the configured Plane URL; the
   container itself stays healthy.
 - A skill is added that targets only one runtime → the manifest validator
@@ -270,7 +279,7 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   SHA, with attribution preserved in the skill manifest header and a top-level
   `ATTRIBUTION.md` file linking back to the upstream repo and license.
 - **FR-008** The `grill-yourself` skill MUST run automatically as a gate
-  before `/flow:finish` when the pending change exceeds EITHER of two
+  before `flow:finish` when the pending change exceeds EITHER of two
   diff-size thresholds: **>200 changed lines** OR **>5 changed files**
   (measured against the merge base). Both thresholds MUST be configurable
   in `.specify/grill-triggers.yaml` (keys: `max_lines`, `max_files`) and
@@ -278,11 +287,11 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   the commit message. When triggered, `grill-yourself` MUST attach its
   transcript to the PR description. Path-based triggers are explicitly out
   of scope to keep the heuristic uniform across all areas of the repo.
-- **FR-009** `/spec:sync` MUST publish spec artifacts to both Plane (as
+- **FR-009** `spec:sync` MUST publish spec artifacts to both Plane (as
   issues/cycles) and Wiki.js (as pages) when those integrations are configured.
-- **FR-010** `/issue:*` skills MUST default to `plane-mcp`. A `gh`-backed
-  adapter MAY be enabled via opt-in flag.
-- **FR-011** `/docs:c4` MUST publish to Wiki.js pages. `/docs:pptx` MUST NOT
+- **FR-010** The `issue:*` skill family MUST default to `plane-mcp`. A
+  `gh`-backed adapter MAY be enabled via opt-in flag.
+- **FR-011** `docs:c4` MUST publish to Wiki.js pages. `docs:pptx` MUST NOT
   exist in the v0.1.0 catalog.
 - **FR-012** The `sequential-thinking` skill MUST NOT exist in the catalog;
   any existing reference to it in ported code MUST be removed.
@@ -350,7 +359,7 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   (d) phase ordering — lower phase numbers before higher. The skill MUST
   output the issue number, title, priority, phase, and a one-line
   rationale for the recommendation, followed by a ready-to-paste
-  `/flow:start <N>` invocation. If no open issues match, report "No
+  `flow:start <N>` invocation. If no open issues match, report "No
   actionable issues found." The skill MUST also support a `--top N` flag to
   show the top N candidates instead of just the single best.
 
@@ -378,13 +387,13 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   mattpocock/skills) imported under `vendor/skills/<name>/`, pinned by SHA,
   with attribution preserved.
 - **Grill Transcript**: Output of `grill-yourself`; markdown artifact stored
-  under `.specify/grills/<spec-id>.md` and attached to PRs by `/flow:finish`.
+  under `.specify/grills/<spec-id>.md` and attached to PRs by `flow:finish`.
 
 ## Success Criteria *(mandatory)*
 
 - **SC-001** A developer can install agent-power-pack on Claude Code AND
   Codex CLI from the same repo with no per-runtime hand-editing.
-- **SC-002** A spec mirrored via `/spec:sync` appears in both the configured
+- **SC-002** A spec mirrored via `spec:sync` appears in both the configured
   Plane workspace and Wiki.js space within one command invocation.
 - **SC-003** `agents-md:lint` catches every staleness scenario in the
   test suite (missing section, missing make target, stale generated file,
@@ -410,8 +419,9 @@ unblocked issue with a ready-to-paste `/flow:start <N>` invocation.
   `.specify/` directory created.
 - **SC-011** `project:next` against a repo with a mixed backlog (varying
   priorities, some blocked, some parallel-safe) returns the correct
-  top-ranked unblocked issue and a ready-to-paste `/flow:start <N>`
-  invocation. `--top 3` returns 3 ranked candidates.
+  top-ranked unblocked issue and a ready-to-paste `flow:start <N>`
+  invocation (see [Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md)).
+  `--top 3` returns 3 ranked candidates.
 
 ## Technical Constraints
 

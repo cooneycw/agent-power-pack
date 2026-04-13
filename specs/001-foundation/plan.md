@@ -16,7 +16,7 @@ with CLAUDE.md/GEMINI.md/.cursorrules as generated outputs; a `project:init`
 guided bootstrap that wires Plane and Wiki.js through a tiered secrets
 layer; and the `grill-me` (vendored from mattpocock/skills with full
 attribution) plus `grill-yourself` skills, with `grill-yourself` auto-firing
-as a `/flow:finish` gate when a PR diff exceeds configurable thresholds.
+as a `flow:finish` gate when a PR diff exceeds configurable thresholds.
 
 ## Technical Context
 
@@ -82,7 +82,7 @@ as a `/flow:finish` gate when a PR diff exceeds configurable thresholds.
 | I | Multi-Runtime First (NON-NEGOTIABLE) | ✅ PASS | Manifest `runtimes` field + validator rejects any skill that doesn't cover every first-class runtime. v0.1.0 ships Claude + Codex adapters; Gemini + Cursor land before v1.0.0. Gate: `tests/unit/test_manifest_validator.py::test_rejects_partial_runtime_coverage`. |
 | II | AGENTS.md is Canonical | ✅ PASS | `agents-md:lint` regenerates CLAUDE.md / GEMINI.md / `.cursorrules` and reverts hand-edits. Generated files carry a `<!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->` header so drift is loud. |
 | III | Single MCP Container, Multi-Transport | ✅ PASS | One Dockerfile under `mcp_container/` hosts all six servers via a Python supervisor process; each server binds one stdio/non-streaming HTTP port AND one SSE/streamable port. `aws-secretsmanager-agent` sidecar runs as a second container in the same compose file but is NOT a "per-server" split — it's a cross-cutting secrets dependency. |
-| IV | Lint or Lose | ✅ PASS | `agents-md:lint` is deterministic, offline, and wired into `/flow:finish`, `/flow:auto`, and CI merge gates. External-system pings stay out of scope. |
+| IV | Lint or Lose | ✅ PASS | `agents-md:lint` is deterministic, offline, and wired into `flow:finish`, `flow:auto`, and CI merge gates. External-system pings stay out of scope. |
 | V | Grill Before You Build | ✅ PASS | `grill-me` is vendored under `vendor/skills/grill-me/` pinned by commit SHA with `ATTRIBUTION.md` at repo root. `grill-yourself` native skill fires via diff-size threshold from `.specify/grill-triggers.yaml`. |
 
 **Gate result**: PASS — no violations, no complexity justifications required.

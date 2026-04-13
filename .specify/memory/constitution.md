@@ -80,7 +80,7 @@ Troubleshooting, Available Commands, Docker Conventions, Deployment);
 actually exists in the repo;
 (c) generated instruction files (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`) are in
 sync with the current `AGENTS.md`.
-Lint failures block `/flow:finish`, `/flow:auto`, and CI merge gates. External-system
+Lint failures block `flow:finish`, `flow:auto`, and CI merge gates. External-system
 liveness checks (Plane, Wiki.js, Woodpecker URLs) are explicitly out of scope to keep
 the linter deterministic and offline-safe.
 
@@ -102,9 +102,9 @@ These are the PREFERRED — and default — integrations. Alternatives are
 permitted only via additional adapters; the core skill catalog targets these:
 
 - **[Plane](https://plane.so/)** is the preferred issue tracker and replaces
-  GitHub Issues. `/spec:sync`, `/flow:start`, and the `/github:issue-*` family
-  (renamed `/issue:*`) target a Plane workspace via `plane-mcp`. Issues, cycles,
-  and modules map onto flow gates.
+  GitHub Issues. `spec:sync`, `flow:start`, and the `issue:*` family
+  (renamed from the former `github:issue-*`) target a Plane workspace via
+  `plane-mcp`. Issues, cycles, and modules map onto flow gates.
 - **[Wiki.js](https://js.wiki/)** is the preferred knowledge base and replaces
   Confluence-style docs. Spec artifacts, C4 architecture diagrams, and grill
   transcripts are published as wiki pages via `wikijs-mcp`.
@@ -116,11 +116,11 @@ permitted only via additional adapters; the core skill catalog targets these:
 The skill catalog from both source power-packs ports forward, trimmed and
 retargeted at the preferred tools above:
 
-- **Documentation (`/docs:*`) is trimmed.** PowerPoint export (`/docs:pptx`)
+- **Documentation (`docs:*`) is trimmed.** PowerPoint export (`docs:pptx`)
   is REMOVED — the deliverable surface is Wiki.js, not slide decks. C4
-  architecture diagrams (`/docs:c4`) are KEPT and publish directly to Wiki.js
+  architecture diagrams (`docs:c4`) are KEPT and publish directly to Wiki.js
   pages.
-- **Issue commands target Plane.** `/issue:*` (formerly `/github:issue-*`)
+- **Issue commands target Plane.** `issue:*` (formerly `github:issue-*`)
   uses `plane-mcp`. Plain `gh` issue access remains available as an opt-in
   adapter but is not the default.
 
@@ -129,23 +129,28 @@ The `second-opinion-mcp` server retains its multi-backend code review surface
 gains a `grill_plan` tool used by `grill-yourself` when the user opts for
 external (vs self) interrogation.
 
-In-scope skill families: `flow:*`, `spec:*`, `cicd:*`, `docs:c4` (only),
-`security:*`, `secrets:*`, `qa:*`, `agents-md:*`, `second-opinion:*`,
-`issue:*` (Plane), `wiki:*` (Wiki.js), `project:*`, `grill:*`.
+In-scope skill families (conceptual names — see
+[Runtime Invocation Matrix](../../specs/001-foundation/contracts/runtime-invocation-matrix.md)
+for per-runtime invocation syntax): `flow:*`, `spec:*`, `cicd:*`,
+`docs:c4` (only), `security:*`, `secrets:*`, `qa:*`, `agents-md:*`,
+`second-opinion:*`, `issue:*` (Plane), `wiki:*` (Wiki.js), `project:*`,
+`grill:*`.
 Out of scope: `sequential-thinking`, `docs:pptx`.
 
 ## Development Workflow & Quality Gates
 
-- **Spec-driven.** All non-trivial features begin with `/speckit.specify` and
-  pass through `/speckit.plan` and `/speckit.tasks` before implementation.
+- **Spec-driven.** All non-trivial features begin with a spec-kit specify
+  pass and move through plan and tasks phases before implementation.
   Specs are mirrored to Plane (as issues/cycles) and Wiki.js (as pages) by
-  `/spec:sync`.
-- **Flow lifecycle.** Work flows through `/flow:start` → `/flow:check` →
-  `/flow:finish`, with worktree isolation and quality gates enforced at each
-  step. `/flow:finish` runs `agents-md:lint`, `make verify`, and the
-  generated-files freshness check; failure blocks the merge.
+  `spec:sync`.
+- **Flow lifecycle.** Work flows through `flow:start` → `flow:check` →
+  `flow:finish`, with worktree isolation and quality gates enforced at each
+  step. `flow:finish` runs `agents-md:lint`, `make verify`, and the
+  generated-files freshness check; failure blocks the merge. Each runtime
+  invokes these skills through its native interaction model (see
+  [Runtime Invocation Matrix](../../specs/001-foundation/contracts/runtime-invocation-matrix.md)).
 - **Grill gates.** `grill-yourself` runs automatically before any
-  `/flow:finish` on changes touching the MCP container, the skill manifest
+  `flow:finish` on changes touching the MCP container, the skill manifest
   format, or `AGENTS.md` itself. Transcripts are attached to the PR.
 - **Single source of truth.** `AGENTS.md` governs runtime behavior; this
   Constitution governs design intent. When they conflict, the Constitution

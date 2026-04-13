@@ -39,8 +39,8 @@ tier with a value wins. Writes default to the dotenv tier.
 - Secrets are never logged, echoed, or written to tracked files.
 - The AWS sidecar runs as a separate container on port 2773, accessed
   only from the local Docker network.
-- `/security:scan` and `/security:quick` check for hardcoded secrets
-  in code and git history.
+- The `security:scan` and `security:quick` skills check for hardcoded
+  secrets in code and git history.
 
 ## Supported versions
 

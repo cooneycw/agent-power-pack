@@ -22,7 +22,7 @@ uv sync
 Every non-trivial change starts with a specification, not code.
 
 1. **Specify** — create a spec under `.specify/specs/<NNN>-<slug>/spec.md`
-   using `/spec:create` or manually. The spec must include a problem
+   using the `spec:create` skill or manually. The spec must include a problem
    statement, user stories, acceptance criteria, and non-goals.
 2. **Plan** — produce a `plan.md` in the same directory with file paths,
    data models, and task breakdown.
@@ -55,7 +55,9 @@ Runtime-specific instruction files (`CLAUDE.md`, `GEMINI.md`,
 
 PRs that exceed the diff-size thresholds in `.specify/grill-triggers.yaml`
 (default: 200 lines changed or 5 files) must include a `grill-yourself`
-transcript. The `/flow:finish` command enforces this automatically.
+transcript. The `flow:finish` skill enforces this automatically (see
+[Runtime Invocation Matrix](./specs/001-foundation/contracts/runtime-invocation-matrix.md)
+for per-runtime syntax).
 
 To run manually:
 

@@ -26,7 +26,7 @@ artifacts via model-routed LLM calls, and publishes to Wiki.js.
 - Q: Cost gating? → A: No. Just run it.
 - Q: Local preview? → A: No. Wiki.js is the output viewer, with built-in page versioning.
 - Q: Permissions/access control? → A: Out of scope for 002
-- Q: `/docs:c4` reconciliation? → A: Becomes convenience alias; delegates to pipeline when `docs/plan.yaml` exists, standalone otherwise
+- Q: `docs:c4` reconciliation? → A: Becomes convenience alias; delegates to pipeline when `docs/plan.yaml` exists, standalone otherwise
 
 ## Multi-Model Research Results
 
@@ -242,8 +242,8 @@ for most users.
 
 ### User Story 7 — /docs:c4 works standalone and via the pipeline (Priority: P2)
 
-The existing `/docs:c4` skill continues to work as a standalone command for
-generating C4 diagrams. When `docs/plan.yaml` exists, `/docs:c4` delegates to
+The existing `docs:c4` skill continues to work as a standalone command for
+generating C4 diagrams. When `docs/plan.yaml` exists, `docs:c4` delegates to
 the same generation pipeline — respecting the theme and Wiki.js convention.
 When no plan exists, it operates as defined in 001-foundation (standalone,
 no theme).
@@ -253,9 +253,9 @@ breaking changes.
 
 **Acceptance Scenarios**:
 
-1. **Given** no `docs/plan.yaml`, **When** `/docs:c4 context` runs, **Then**
+1. **Given** no `docs/plan.yaml`, **When** `docs:c4 context` runs, **Then**
    it behaves as defined in 001-foundation spec.
-2. **Given** `docs/plan.yaml` exists with a theme, **When** `/docs:c4 context`
+2. **Given** `docs/plan.yaml` exists with a theme, **When** `docs:c4 context`
    runs, **Then** the diagram uses the project theme and publishes to the
    convention path.
 
@@ -351,8 +351,8 @@ breaking changes.
 - **FR-017** `docs:start` MUST propose the convention template during initial
   setup, allowing the developer to accept or customize. The chosen convention
   MUST be recorded in `docs/plan.yaml`.
-- **FR-018** The existing `/docs:c4` skill from 001-foundation MUST continue
-  to work standalone. When `docs/plan.yaml` exists, `/docs:c4` MUST delegate
+- **FR-018** The existing `docs:c4` skill from 001-foundation MUST continue
+  to work standalone. When `docs/plan.yaml` exists, `docs:c4` MUST delegate
   to the docs pipeline, respecting the project theme and Wiki.js convention.
 - **FR-019** All four docs skills (`docs:start`, `docs:analyze`, `docs:auto`,
   `docs:update`) MUST be model-agnostic — they MUST work regardless of which
@@ -421,7 +421,7 @@ breaking changes.
   on resolution.
 - **SC-007** Overriding the `model` field in `docs/plan.yaml` changes the
   LLM used for that artifact on the next `docs:auto` run.
-- **SC-008** `/docs:c4` works standalone (no `plan.yaml`) and via the
+- **SC-008** `docs:c4` works standalone (no `plan.yaml`) and via the
   pipeline (with `plan.yaml`) with no behavioral regression from
   001-foundation.
 - **SC-009** All four docs skills execute identically on Claude Code and
