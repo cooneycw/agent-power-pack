@@ -125,7 +125,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 - [ ] T046 [US3] Write `mcp_container/Dockerfile` using `mcr.microsoft.com/playwright/python:v1.x-jammy` as base, installing the project via `uv sync --frozen` and starting `supervisor.py`.
 - [ ] T047 [US3] Write `compose.yaml` at repo root defining the `mcp` service (the container) plus the `secrets-sidecar` service using the official `aws/aws-secretsmanager-agent` image, sharing a bridge network.
 - [ ] T048 [US3] Implement `mcp_container/supervisor.py` starting all six MCP servers as `asyncio` tasks in a single process, per `research.md §3`.
-- [ ] T049 [US3] Implement dual-transport routing in `mcp_container/transports/` — stdio + non-streaming HTTP on ports 8080–8085, SSE on ports 9100–9105, one server per port pair.
+- [ ] T049 [US3] Implement dual-transport routing in `mcp_container/transports/` — stdio + non-streaming HTTP on ports 8080–8085, streamable HTTP (with SSE compatibility) on ports 9100–9105, one server per port pair.
 - [ ] T050 [P] [US3] Implement `second_opinion` server under `mcp_container/servers/second_opinion/` porting the claude-power-pack implementation plus the new `grill_plan` tool per `contracts/mcp-tools.md`.
 - [ ] T051 [P] [US3] Implement `plane` server under `mcp_container/servers/plane/` using `httpx` REST v1 client with tools `list_workspaces`, `create_issue`, `update_issue`, `list_issues`, `close_issue`, `list_cycles`.
 - [ ] T052 [P] [US3] Implement `wikijs` server under `mcp_container/servers/wikijs/` using `gql` + `httpx` GraphQL v2 client with `.graphql` operation files, plus the new `publish_c4` tool.

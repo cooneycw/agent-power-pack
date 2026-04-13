@@ -1,7 +1,8 @@
-"""E2E test: verify SSE/streamable transport for all 6 MCP servers.
+"""E2E test: verify streamable HTTP transport for all 6 MCP servers.
 
 Uses testcontainers to spin up the MCP container and verify each server
-responds on its SSE port (9100-9105).
+responds on its streamable HTTP port (9100-9105).  SSE is also served
+on these ports for backward compatibility.
 """
 
 from __future__ import annotations

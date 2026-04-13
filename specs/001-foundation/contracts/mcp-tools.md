@@ -92,16 +92,18 @@ the source power-packs.
 | `approve_pipeline` | `repo_id, pipeline_number` | `{ pipeline: {...} }` |
 | `get_pipeline_logs` | `repo_id, pipeline_number, step?` | `{ logs: str }` |
 
-## Transport note
+## Transport matrix
 
-Transport expectations are runtime-specific:
+| Runtime | Primary transport | Port range (v0.1.0) | Config surface | Env-var prefix |
+|---|---|---|---|---|
+| Claude Code | stdio / non-streaming HTTP | 8080–8085 | `claude_desktop_config.json` or `--mcp` flag | `PORT_STDIO_` |
+| Codex CLI | **streamable HTTP** | 9100–9105 | `~/.codex/config.toml` → `mcp_servers` table | `PORT_SSE_` *(legacy name)* |
+| SSE (compat) | SSE on Codex-facing listener | 9100–9105 (same) | — | — |
 
-- **Claude Code**: stdio / non-streaming HTTP on `PORT_STDIO_<server>`
-  (range 8080–8085 in v0.1.0).
-- **Codex CLI**: streamable HTTP on `PORT_SSE_<server>` (range 9100–9105
-  in v0.1.0), surfaced in `~/.codex/config.toml` via `mcp_servers`.
-- **SSE**: optional compatibility transport on the Codex-facing listener,
-  not the primary Codex contract.
+> **Note:** The `PORT_SSE_` env-var prefix is a legacy name retained for
+> backward compatibility.  The ports serve streamable HTTP as the primary
+> Codex transport; SSE remains available as an optional compatibility
+> layer on the same listener.
 
 A tool is considered "implemented" only when `tests/e2e/test_dual_attach.py`
 confirms the Claude-facing and Codex-facing transports return identical

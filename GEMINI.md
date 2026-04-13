@@ -1,5 +1,5 @@
 <!-- GENERATED FROM AGENTS.md — DO NOT EDIT -->
-<!-- source-hash: 25fcb62965ac333b3e97565ad04fdc2cab4061e0e75b7312d8f0dac3c83c9de5 -->
+<!-- source-hash: 3bc94410fc90edec5d350a4aa5358c827c6555918afc77dd15740092ef636132 -->
 # AGENTS.md
 
 Canonical instruction file for agent-power-pack. All runtime-specific files
@@ -55,7 +55,7 @@ Services are defined in `compose.yaml`:
 - `docker compose down` — stop all services
 
 All containers join the `mcp-net` bridge network. The MCP container exposes
-ports 8080-8085 (HTTP) and 9100-9105 (SSE).
+ports 8080-8085 (HTTP) and 9100-9105 (Streamable HTTP / SSE compatibility).
 
 ## Deployment
 
