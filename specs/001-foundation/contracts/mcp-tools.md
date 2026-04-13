@@ -51,7 +51,7 @@ Wiki.js content operations. Uses `gql` + GraphQL v2.
 | `update_page` | `id: int, content: str, title?: str, tags?: list[str]` | `{ id, url }` | |
 | `delete_page` | `id: int` | `{ id, deleted: bool }` | |
 | `search` | `query: str, limit?: int` | `{ hits: list[{id, path, snippet}] }` | |
-| `publish_c4` *(NEW)* | `path: str, title: str, diagrams: list[{name, plantuml}]` | `{ id, url }` | Used by `/docs:c4` (spec FR-011). Renders PlantUML blocks inline. |
+| `publish_c4` *(NEW)* | `path: str, title: str, diagrams: list[{name, plantuml}]` | `{ id, url }` | Used by `docs:c4` (spec FR-011). Renders PlantUML blocks inline. |
 
 ## nano-banana
 

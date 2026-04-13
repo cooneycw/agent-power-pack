@@ -154,7 +154,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 
 ## Phase 6: User Story 4 — `grill-yourself` as a flow gate (Priority: P2)
 
-**Goal**: `grill-yourself` fires automatically before `/flow:finish` when the pending diff exceeds configurable thresholds (default > 200 lines OR > 5 files), and attaches its transcript to the PR. Manual invocation also works.
+**Goal**: `grill-yourself` fires automatically before `flow:finish` when the pending diff exceeds configurable thresholds (default > 200 lines OR > 5 files), and attaches its transcript to the PR. Manual invocation also works.
 
 **Independent Test**: Create a PR with a 300-line diff; `agent-power-pack flow finish` triggers `grill-yourself` and writes a transcript under `.specify/grills/<timestamp>.md`. A trailer `grill-yourself: skip` on the HEAD commit suppresses it.
 
@@ -176,7 +176,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 
 **Goal**: `grill-me` is vendored from `mattpocock/skills` pinned by SHA, attribution preserved in the skill manifest header and `ATTRIBUTION.md`.
 
-**Independent Test**: `/grill:me` triggers one-question-at-a-time interactive mode; the installed SKILL file credits the upstream URL; `make update-vendored-skills` updates the pinned SHA.
+**Independent Test**: `grill:me` triggers one-question-at-a-time interactive mode; the installed SKILL file credits the upstream URL; `make update-vendored-skills` updates the pinned SHA.
 
 - [ ] T072 [US5] Vendor the `grill-me` skill from `mattpocock/skills` into `vendor/skills/grill-me/` at a pinned SHA; create `vendor/skills/grill-me/VERSION` containing the SHA.
 - [ ] T073 [US5] Create `manifests/grill/me.yaml` wrapper manifest around the vendored skill, with `attribution.source`, `attribution.commit_sha` (matching `VERSION`), and `attribution.license`.
@@ -192,7 +192,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 
 ## Phase 8: User Story 6 — Plane + Wiki.js defaults, `project:init` guided wizard (Priority: P2)
 
-**Goal**: `project:init` bootstraps a new project end-to-end, including a guided Plane + Wiki.js configuration through the tiered secrets layer. `/issue:*` defaults to Plane, `/docs:c4` publishes to Wiki.js, `/docs:pptx` does not exist.
+**Goal**: `project:init` bootstraps a new project end-to-end, including a guided Plane + Wiki.js configuration through the tiered secrets layer. `issue:*` defaults to Plane, `docs:c4` publishes to Wiki.js, `docs:pptx` does not exist.
 
 **Independent Test**: Run `project:init` in a fresh directory with valid Plane/Wiki.js creds; both connectivity checks pass and `AGENTS.md` gains an `External Systems` section.
 
@@ -269,7 +269,7 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 - **Phase 1 (Setup)** blocks **Phase 2 (Foundational)**.
 - **Phase 2 (Foundational)** blocks ALL user story phases.
 - **US1 (Phase 3)**, **US2 (Phase 4)**, and **US3 (Phase 5)** are P1 and MUST all complete for a minimal useful release, but within each phase tasks marked [P] can run in parallel.
-- **US4 (Phase 6)** depends on Phase 2 only (independent of US1–US3 for core logic), but wiring into `/flow:finish` depends on US1 (CLI) being present.
+- **US4 (Phase 6)** depends on Phase 2 only (independent of US1–US3 for core logic), but wiring into `flow:finish` depends on US1 (CLI) being present.
 - **US5 (Phase 7)** depends on Phase 2 only.
 - **US6 (Phase 8)** depends on Phase 2 and US3 (MCP container + Plane/Wiki.js servers must exist for connectivity probes to succeed).
 - **Phase 9 (Woodpecker checklist)** depends on Phase 2 only; can run in parallel with user stories.

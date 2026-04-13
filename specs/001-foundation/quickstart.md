@@ -159,10 +159,12 @@ files.
 
 ## 7. Try grill-me (interactive)
 
-From an installed runtime session:
+From an installed runtime session (see
+[Runtime Invocation Matrix](./contracts/runtime-invocation-matrix.md) for
+the full per-runtime syntax):
 
-> `grill me on this plan` (Claude Code)
-> `$apppack-grill-me` (Codex CLI)
+> `grill me on this plan` (Claude Code — via `/grill:me` or natural language)
+> `grill me on this plan` (Codex CLI — via natural language prompt)
 
 Walk through the Q&A loop. The underlying skill is vendored from
 [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/grill-me)
@@ -213,5 +215,5 @@ real MCP containers via `testcontainers`, so Docker must be running.
   common cause: wrong workspace slug. Re-run with `--reconfigure plane`.
 - **`agents-md:lint` reports a generated file is out of sync after a
   manual `AGENTS.md` edit** — this is correct. Run
-  `agent-power-pack generate` to regenerate, or let `/flow:check`
+  `agent-power-pack generate` to regenerate, or let `flow:check`
   handle it automatically.
