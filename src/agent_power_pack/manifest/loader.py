@@ -6,7 +6,7 @@ Preserves comments, field ordering, and whitespace for lossless round-trips.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 from ruamel.yaml import YAML
 
@@ -84,7 +84,7 @@ def dump_manifest(manifest: SkillManifest, dest: Union[str, Path]) -> None:
     yaml.dump(manifest.model_dump(mode="json"), path)
 
 
-def load_raw_yaml(source: Union[str, Path]) -> dict:
+def load_raw_yaml(source: Union[str, Path]) -> dict[str, Any]:
     """Load raw YAML data preserving comments and ordering (for round-trip tests).
 
     Args:
@@ -94,10 +94,10 @@ def load_raw_yaml(source: Union[str, Path]) -> dict:
         A ruamel.yaml CommentedMap (dict-like) with comments preserved.
     """
     yaml = _make_yaml()
-    return yaml.load(Path(source))
+    return yaml.load(Path(source))  # type: ignore[no-any-return]
 
 
-def dump_raw_yaml(data: dict, dest: Union[str, Path]) -> None:
+def dump_raw_yaml(data: dict[str, Any], dest: Union[str, Path]) -> None:
     """Dump raw YAML data preserving comments and ordering.
 
     Args:

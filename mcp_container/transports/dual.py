@@ -67,8 +67,6 @@ class DualTransportRunner:
 
         # Mount the MCP streamable-http endpoint alongside health
         try:
-            from mcp.server.fastmcp import FastMCP  # noqa: F811
-
             # FastMCP has .sse_app() or similar — we use streamable HTTP
             mcp_app = self.mcp_server.streamable_http_app()
         except (AttributeError, TypeError):

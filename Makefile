@@ -22,7 +22,7 @@ mcp-health:
 
 verify:
 	uv run ruff check .
-	uv run mypy src tests
+	uv run mypy src/
 	uv run pytest -m "unit or integration"
 	uv run pytest -m perf
 
