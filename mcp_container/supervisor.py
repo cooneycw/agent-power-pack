@@ -2,7 +2,7 @@
 
 Each server runs on two ports:
   - stdio/HTTP (non-streaming): 8080-8085 (for Claude Code)
-  - SSE/streamable: 9100-9105 (for Codex CLI)
+  - Streamable HTTP (with SSE compatibility): 9100-9105 (for Codex CLI)
 """
 
 from __future__ import annotations

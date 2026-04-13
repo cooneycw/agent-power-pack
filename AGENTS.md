@@ -53,7 +53,7 @@ Services are defined in `compose.yaml`:
 - `docker compose down` — stop all services
 
 All containers join the `mcp-net` bridge network. The MCP container exposes
-ports 8080-8085 (HTTP) and 9100-9105 (SSE).
+ports 8080-8085 (HTTP) and 9100-9105 (Streamable HTTP / SSE compatibility).
 
 ## Deployment
 

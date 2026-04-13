@@ -1,7 +1,8 @@
 """Dual-transport runner for MCP servers.
 
-Provides both stdio/HTTP (non-streaming) and SSE (streamable) transports
-for each MCP server instance.
+Provides both stdio/HTTP (non-streaming) and streamable HTTP transports
+for each MCP server instance.  The streamable-HTTP listener also serves
+SSE for backward compatibility.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ def _build_health_app(server_name: str, version: str = "0.0.1") -> Starlette:
 
 
 class DualTransportRunner:
-    """Runs a single FastMCP server on two ports: HTTP and SSE."""
+    """Runs a single FastMCP server on two ports: HTTP and Streamable HTTP."""
 
     def __init__(
         self,
@@ -100,7 +101,7 @@ class DualTransportRunner:
         await server.serve()
 
     async def _run_sse(self) -> None:
-        """Run SSE/streamable transport with /healthz."""
+        """Run streamable HTTP transport (with SSE compatibility) and /healthz."""
         health_app = _build_health_app(self.server_name)
 
         try:

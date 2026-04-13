@@ -97,7 +97,7 @@ prompt: |
      `update-vendored-skills`.
   4. **`compose.yaml`** — MCP container + aws-secretsmanager-agent
      sidecar definition, pre-configured with the correct port ranges
-     (8080–8085 stdio, 9100–9105 SSE, 2773 sidecar).
+     (8080–8085 stdio, 9100–9105 streamable HTTP, 2773 sidecar).
   5. **`pyproject.toml`** (if Python) or equivalent project manifest.
   6. **`.gitignore`** — sensible defaults for the framework, plus
      `.venv/`, `.env`, `.specify/grills/`, `__pycache__/`.

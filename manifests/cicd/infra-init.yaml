@@ -40,7 +40,7 @@ prompt: |
   If `compose.yaml` does not exist, generate one with:
 
   - **mcp** service: the MCP container with correct port mappings
-    (8080-8085 stdio, 9100-9105 SSE).
+    (8080-8085 stdio, 9100-9105 streamable HTTP).
   - **aws-sidecar** service (if applicable): the
     `aws-secretsmanager-agent` sidecar on port 2773.
   - Any additional services requested via `--services`.
