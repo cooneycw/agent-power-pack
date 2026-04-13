@@ -95,7 +95,7 @@ contributor (including future-you) works an issue through this loop:
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
-  │  7. Merge → gh issue close <N>                          │
+  │  7. Merge → close issue (via gh / Plane / manual)       │
   └─────────────────────────────────────────────────────────┘
 ```
 
