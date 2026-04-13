@@ -24,6 +24,12 @@ def mcp_container_timed():
     except ImportError:
         pytest.skip("testcontainers not available")
 
+    try:
+        import docker
+        docker.from_env().ping()
+    except Exception:
+        pytest.skip("Docker daemon not accessible")
+
     container = (
         DockerContainer("agent-power-pack-mcp:latest")
         .with_exposed_ports(*HTTP_PORTS)

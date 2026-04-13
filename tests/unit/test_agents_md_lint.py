@@ -18,7 +18,6 @@ import pytest
 from agent_power_pack.linter.document import load_agents_md
 from agent_power_pack.linter.generated_check import GENERATED_HEADER, HASH_PREFIX, check_generated
 from agent_power_pack.linter.repo_check import check_repo
-from agent_power_pack.linter.result import LintCheck
 from agent_power_pack.linter.schema_check import check_schema
 from agent_power_pack.linter.agents_md import lint_agents_md
 from agent_power_pack.generator.instruction_files import generate_instruction_files

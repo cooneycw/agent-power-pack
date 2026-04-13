@@ -47,4 +47,4 @@ def get_logger(component: str) -> structlog.stdlib.BoundLogger:
     Args:
         component: Identifies the subsystem (e.g. "manifest.loader", "cli").
     """
-    return structlog.get_logger(component=component)
+    return structlog.get_logger(component=component)  # type: ignore[no-any-return]

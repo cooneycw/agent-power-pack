@@ -5,7 +5,12 @@ Subcommands are placeholders — bodies are filled in during user-story phases.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import typer
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 from agent_power_pack.logging import configure_logging
 
@@ -364,7 +369,7 @@ def init(
         console.print("Wiki.js: [yellow]skipped (no credentials)[/yellow]")
 
 
-def _handle_reconfigure(integration: str, console: object) -> None:
+def _handle_reconfigure(integration: str, console: "Console") -> None:
     """Re-run a probe for a specific integration."""
     from agent_power_pack.cpp_init.probes import probe_plane, probe_wikijs
     from agent_power_pack.secrets import get_secret
@@ -374,22 +379,22 @@ def _handle_reconfigure(integration: str, console: object) -> None:
         workspace = get_secret("PLANE_WORKSPACE")
         token = get_secret("PLANE_API_TOKEN")
         if not all([url, workspace, token]):
-            console.print("[red]Missing Plane credentials in secrets.[/red]")  # type: ignore[union-attr]
+            console.print("[red]Missing Plane credentials in secrets.[/red]")
             raise typer.Exit(code=1)
         result = probe_plane(url, workspace, token)  # type: ignore[arg-type]
         status = "[green]OK[/green]" if result.ok else f"[red]FAILED: {result.detail}[/red]"
-        console.print(f"Plane probe: {status}")  # type: ignore[union-attr]
+        console.print(f"Plane probe: {status}")
     elif integration == "wikijs":
         url = get_secret("WIKIJS_URL")
         token = get_secret("WIKIJS_API_TOKEN")
         if not all([url, token]):
-            console.print("[red]Missing Wiki.js credentials in secrets.[/red]")  # type: ignore[union-attr]
+            console.print("[red]Missing Wiki.js credentials in secrets.[/red]")
             raise typer.Exit(code=1)
         result = probe_wikijs(url, token)  # type: ignore[arg-type]
         status = "[green]OK[/green]" if result.ok else f"[red]FAILED: {result.detail}[/red]"
-        console.print(f"Wiki.js probe: {status}")  # type: ignore[union-attr]
+        console.print(f"Wiki.js probe: {status}")
     else:
-        console.print(f"[red]Unknown integration '{integration}'. Valid: plane, wikijs[/red]")  # type: ignore[union-attr]
+        console.print(f"[red]Unknown integration '{integration}'. Valid: plane, wikijs[/red]")
         raise typer.Exit(code=1)
 
 
@@ -520,8 +525,6 @@ def cicd(
 
     from agent_power_pack.cicd.woodpecker_checklist import (
         NON_WAIVABLE_RULES,
-        load_pipeline,
-        run_validator,
         validate_pipeline_file,
     )
 

@@ -33,7 +33,7 @@ _DEFAULT_TIER_ORDER: list[type[AwsSidecarTier | EnvFileTier | DotenvTier]] = [
 
 def resolve_tiers() -> list[SecretTier]:
     """Instantiate all tiers in priority order, returning only those that are available."""
-    return [tier() for tier in _DEFAULT_TIER_ORDER if tier().is_available()]
+    return [tier() for tier in _DEFAULT_TIER_ORDER if tier().is_available()]  # type: ignore[misc]
 
 
 def get_secret(key: str) -> str | None:
