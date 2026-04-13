@@ -411,6 +411,15 @@ def flow(
 
         from agent_power_pack.grill.triggers import should_grill
         from agent_power_pack.grill.yourself import run_grill_yourself
+        from agent_power_pack.issue_backend import (
+            attach_body_to_pr,
+            detect_backend,
+            get_current_pr_number,
+        )
+
+        backend = detect_backend()
+        if backend == "none":
+            typer.echo("flow finish: gh CLI not found — PR side effects will be skipped")
 
         # Collect numstat diff against origin/main
         try:
@@ -444,39 +453,28 @@ def flow(
         typer.echo(f"flow finish: {decision.reason}")
 
         if decision.should_fire:
-            # Detect PR ref
-            pr_ref: str | None = None
-            try:
-                pr_result = subprocess.run(
-                    ["gh", "pr", "view", "--json", "number", "-q", ".number"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if pr_result.returncode == 0 and pr_result.stdout.strip():
-                    pr_ref = f"#{pr_result.stdout.strip()}"
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                pass
+            # Detect PR ref via backend (optional — never hard-fails)
+            pr_number = get_current_pr_number()
+            pr_ref = f"#{pr_number}" if pr_number else None
+
+            if backend != "none" and pr_ref is None:
+                typer.echo("flow finish: no open PR detected — transcript saved to file only")
 
             transcript = run_grill_yourself(pr_ref=pr_ref)
             typer.echo(f"Grill-yourself complete: {len(transcript.questions)} questions")
             typer.echo(f"Summary: {transcript.summary}")
 
-            # Attach transcript to PR if possible
+            # Attach transcript to PR if possible (optional adapter)
             if pr_ref:
                 from agent_power_pack.grill.transcript import render_markdown
 
                 md = render_markdown(transcript)
-                try:
-                    subprocess.run(
-                        ["gh", "pr", "edit", "--body", md],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
+                if attach_body_to_pr(md):
                     typer.echo(f"Transcript attached to PR {pr_ref}")
-                except (subprocess.TimeoutExpired, FileNotFoundError):
-                    typer.echo("Could not attach transcript to PR")
+                else:
+                    typer.echo(f"Could not attach transcript to PR {pr_ref} — saved to .specify/grills/ instead")
+            else:
+                typer.echo("Transcript saved to .specify/grills/ (no PR backend available)")
         else:
             typer.echo("Grill-yourself not triggered.")
     else:
