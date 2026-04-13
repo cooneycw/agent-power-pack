@@ -69,5 +69,6 @@ markers = [
     "integration: Integration tests",
     "e2e: End-to-end tests",
     "perf: Performance tests",
+    "codex_smoke: Codex CLI smoke tests — runtime compatibility verification",
 ]
 asyncio_mode = "auto"

@@ -90,6 +90,14 @@ Multi-component Python monorepo under a single `uv` workspace per `plan.md`. Key
 
 **Checkpoint**: User Story 1 complete — the multi-runtime install story delivers an MVP. A developer can already use agent-power-pack skills in Claude Code and Codex CLI, even though the AGENTS.md linter and MCP container are still stubs.
 
+### Phase 3b: Codex smoke tests — runtime compatibility verification (Issue #144)
+
+- [ ] T046 [US1] Implement Codex smoke test harness in `tests/smoke/test_codex_smoke.py` with Tier 1 (structure validation) and Tier 2 (CLI verification) tests per updated runtime-adapter contract.
+- [ ] T047 [P] [US1] Wire `codex-smoke` step into `.woodpecker.yml` running `pytest -m codex_smoke` after the `test` step, with codex CLI installed via npm.
+- [ ] T048 [US1] Update testing methodology docs (`runtime-adapter.interface.md`, `plan.md`) to distinguish "golden output correctness" (shape regression) from "runtime compatibility" (smoke tests).
+
+**Gate**: Phase 3 is not considered complete without at least Tier 1 smoke tests passing in CI.
+
 ---
 
 ## Phase 4: User Story 2 — AGENTS.md canonical + lint gate (Priority: P1)

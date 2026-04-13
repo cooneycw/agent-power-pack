@@ -1,4 +1,4 @@
-.PHONY: install mcp-up mcp-down mcp-health verify lint test update-vendored-skills secrets-sidecar-up
+.PHONY: install mcp-up mcp-down mcp-health verify lint test test-codex-smoke update-vendored-skills secrets-sidecar-up
 
 install:
 ifndef RUNTIME
@@ -30,6 +30,9 @@ lint:
 
 test:
 	uv run pytest
+
+test-codex-smoke:
+	uv run pytest -m codex_smoke -v
 
 update-vendored-skills:
 	python scripts/update_vendored_skills.py

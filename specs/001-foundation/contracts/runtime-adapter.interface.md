@@ -112,9 +112,11 @@ cursor = "agent_power_pack.adapters.cursor:CursorStub"
 `agent-power-pack install --runtime <name>` looks up the adapter via this
 entry-point group.
 
-## Test obligations (golden files)
+## Test obligations (golden files — shape regression)
 
-Each working adapter MUST have a golden-file test under
+Golden-file tests verify that adapter output structure does not drift
+unintentionally. They do NOT prove that the output is consumable by the
+target runtime. Each working adapter MUST have a golden-file test under
 `tests/integration/test_adapter_<runtime>.py` that:
 
 1. Loads a fixed set of 3 manifests (one with `mcp_tools`, one with
@@ -124,3 +126,28 @@ Each working adapter MUST have a golden-file test under
    `tests/integration/golden/<runtime>/` byte-for-byte (modulo timestamps).
 4. Asserts `InstallReport.files_written` matches the tree.
 5. Runs the install again and asserts no files change (idempotence).
+
+## Test obligations (smoke tests — runtime compatibility)
+
+Smoke tests validate that generated artifacts are actually consumable by
+the target runtime CLI. They complement golden-file tests by catching
+cases where the contract itself is wrong (golden tests would preserve
+the wrong behavior). Tests live under `tests/smoke/`.
+
+For the Codex CLI adapter specifically (`tests/smoke/test_codex_smoke.py`):
+
+**Tier 1 — Structure validation** (no CLI binary required):
+
+1. Verify skills are installed at `.agents/skills/<name>/SKILL.md`.
+2. Verify each `SKILL.md` has valid YAML frontmatter with required fields.
+3. Verify user-mode install produces `~/.codex/config.toml` with
+   `[mcp_servers.]` table entries (not legacy `[mcp.servers.]`).
+
+**Tier 2 — CLI verification** (requires `codex` binary, skipped if absent):
+
+1. Verify `codex mcp list` discovers registered MCP servers from
+   generated `config.toml`.
+2. Verify `codex` starts without error in a directory containing
+   generated `.agents/skills/`.
+
+Phase 3 is not considered complete without at least Tier 1 passing in CI.
