@@ -1,0 +1,139 @@
+name: analyze
+family: docs
+description: >-
+  Scan docs/theme/ for visual identity and the codebase for documentation
+  signals. Produces theme.yaml (colors, fonts, layouts) and plan.yaml
+  (proposed artifacts with LLM routing and source signals).
+triggers:
+  - /docs:analyze
+  - docs analyze
+  - analyze docs
+  - analyze theme
+  - infer theme
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools: []
+attribution: null
+order: 10
+prompt: |
+  # /docs:analyze — Theme Inference and Documentation Plan Generation
+
+  Analyze the docs/theme/ folder for visual identity and scan the codebase
+  for documentation signals. Produces two outputs:
+  - `docs/theme/theme.yaml` — inferred theme (colors, fonts, layouts)
+  - `docs/plan.yaml` — proposed documentation artifacts with LLM routing
+
+  ## Prerequisites
+
+  - `docs:start` should have been run first (creates docs/theme/ scaffold).
+  - If `docs/theme/` does not exist, warn and use defaults.
+
+  ## Steps
+
+  ### Step 1: Run the automated analyzer
+
+  ```bash
+  agent-power-pack docs analyze
+  ```
+
+  This command:
+  1. Scans `docs/theme/logos/` for images and extracts dominant colors.
+  2. Scans `docs/theme/fonts/` for TTF/OTF files and reads font family names.
+  3. Scans `docs/theme/samples/` for PPTX files and extracts theme info.
+  4. Scans the codebase for documentation signals (compose.yaml, Python
+     modules, specs, MCP tools, etc.) and maps them to artifact types.
+  5. Writes `docs/theme/theme.yaml` with the inferred theme.
+  6. Writes `docs/plan.yaml` with proposed artifacts.
+
+  ### Step 2: Review and refine theme.yaml
+
+  Read `docs/theme/theme.yaml` and present the inferred theme to the
+  developer:
+
+  ```
+  Inferred Theme
+  ==============
+  Colors:
+    Primary:    {primary}
+    Secondary:  {secondary}
+    Accent:     {accent}
+    Background: {background}
+    Text:       {text}
+
+  Fonts:
+    Heading: {heading}
+    Body:    {body}
+
+  Logos: {list of logo files}
+
+  Warnings: {any warnings from inference}
+  ```
+
+  If any warnings are present (e.g., missing logos, no PPTX samples), note
+  them and suggest improvements.
+
+  Ask: "Does this theme look right? (yes / edit)"
+
+  - If yes, proceed.
+  - If edit, help the developer modify theme.yaml as needed.
+
+  ### Step 3: Review and refine plan.yaml
+
+  Read `docs/plan.yaml` and present the proposed artifacts:
+
+  ```
+  Documentation Plan
+  ==================
+  {N} artifacts proposed:
+
+  Type                  Model     Confidence  Depth     Source Signals
+  ────────────────────  ────────  ──────────  ────────  ─────────────────
+  {type}                {model}   {conf}      {depth}   {signals}
+  ...
+
+  Dependencies:
+  - {artifact} depends on {other artifact}
+  ```
+
+  Ask: "Approve this plan? (yes / edit / remove <type>)"
+
+  - If yes, the plan is locked in.
+  - If edit, help modify model assignments, depths, or signals.
+  - If remove, delete the specified artifact from the plan.
+
+  Remind the developer: "You can always edit docs/plan.yaml directly later.
+  docs:auto will respect your changes."
+
+  ### Step 4: Summary
+
+  ```
+  docs:analyze complete
+
+    Theme:     docs/theme/theme.yaml
+    Plan:      docs/plan.yaml
+    Artifacts: {N} proposed ({types})
+
+  Next steps:
+    1. Review and optionally edit docs/plan.yaml
+    2. Run /docs:auto to generate documentation
+  ```
+
+  ## Edge Cases
+
+  - **Empty docs/theme/**: uses sensible defaults, warns the developer.
+  - **No docs/plan.yaml exists yet**: creates one from scratch.
+  - **docs/plan.yaml already has artifacts**: merges — preserves manual
+    edits to existing entries, adds newly detected artifacts.
+  - **Corrupt PPTX**: skips the file, warns, uses remaining assets.
+  - **No compose.yaml, no Python modules**: proposes only prose docs
+    and ADRs (from README and git history).
+
+  ## Error Handling
+
+  - **agent-power-pack not installed**: fall back to manual analysis —
+    read the docs/theme/ files yourself and write theme.yaml/plan.yaml
+    based on what you observe.
+  - **Permission error writing files**: STOP and report.
