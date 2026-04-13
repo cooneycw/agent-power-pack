@@ -123,7 +123,8 @@ prompt: |
 
   ## Step 5: Guided external-tool configuration (FR-016)
 
-  For each of **Plane** and **Wiki.js**, run the guided config wizard:
+  For each of **Plane**, **Wiki.js**, and (optionally) **OpenAI Docs MCP**,
+  run the guided config wizard:
 
   1. **Detect existing credentials** — check the tiered secrets layer
      (sidecar → env-file → dotenv) for the tool's base URL and API
@@ -135,12 +136,33 @@ prompt: |
   4. **One-shot connectivity check**:
      - Plane: `GET /api/v1/workspaces/{slug}/` expecting 200.
      - Wiki.js: GraphQL `{ pages { list(limit: 1) { id } } }`.
+     - OpenAI Docs MCP: `GET {url}` expecting 200 (public, no auth).
      Report pass/fail. On failure: offer retry, edit creds, or skip.
   5. **Record in AGENTS.md** — add an `## External Systems` section
      naming the configured endpoints.
 
-  Skipped tools MUST be re-promptable via `project:init --reconfigure plane`
-  or `project:init --reconfigure wikijs`.
+  ### OpenAI Docs MCP (optional)
+
+  OpenAI recommends configuring the public OpenAI Docs MCP server so that
+  agents consult official documentation for OpenAI API, Codex CLI, and SDK
+  questions. This is **disabled by default** — prompt the user to opt in.
+
+  - No API token required — the server is publicly accessible.
+  - Ask for the MCP server URL (or accept the default).
+  - Probe the URL to confirm reachability.
+  - If configured, add an AGENTS.md instruction telling the agent to use
+    the OpenAI Docs MCP server first for OpenAI/Codex/API questions.
+  - For Codex CLI users, generate a `config.toml` snippet pointing to the
+    external MCP URL:
+
+    ```toml
+    [mcp_servers."openai-developer-docs"]
+    url = "{openai_docs_url}"
+    ```
+
+  Skipped tools MUST be re-promptable via `project:init --reconfigure plane`,
+  `project:init --reconfigure wikijs`, or
+  `project:init --reconfigure openai-docs`.
 
   ## Step 6: Install the skill catalog
 
@@ -175,6 +197,7 @@ prompt: |
     MCP container: compose.yaml (6 servers + sidecar)
     Plane:         {configured (workspace: ...) | skipped}
     Wiki.js:       {configured (space: ...) | skipped}
+    OpenAI Docs:   {configured (url: ...) | skipped}
     Skills:        {N} installed for {runtime}
     Git:           pushed to github.com/{user}/{name}
     Spec-kit:      initialized

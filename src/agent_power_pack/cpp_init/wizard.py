@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent_power_pack.cpp_init.probes import ProbeResult, probe_plane, probe_wikijs
+from agent_power_pack.cpp_init.probes import ProbeResult, probe_openai_docs, probe_plane, probe_wikijs
 from agent_power_pack.logging import get_logger
 
 log = get_logger("cpp_init.wizard")
@@ -139,8 +139,10 @@ class WizardReport:
     files_created: list[Path] = field(default_factory=list)
     plane_configured: bool = False
     wikijs_configured: bool = False
+    openai_docs_configured: bool = False
     plane_probe: ProbeResult | None = None
     wikijs_probe: ProbeResult | None = None
+    openai_docs_probe: ProbeResult | None = None
 
 
 def run_wizard(
@@ -149,11 +151,13 @@ def run_wizard(
     framework: str = "generic",
     skip_plane: bool = False,
     skip_wikijs: bool = False,
+    skip_openai_docs: bool = False,
     plane_url: str | None = None,
     plane_workspace: str | None = None,
     plane_token: str | None = None,
     wikijs_url: str | None = None,
     wikijs_token: str | None = None,
+    openai_docs_url: str | None = None,
 ) -> WizardReport:
     """Run the project:init wizard.
 
@@ -207,5 +211,14 @@ def run_wizard(
         log.info("wikijs probe", ok=probe.ok, detail=probe.detail)
     elif not skip_wikijs:
         log.info("wikijs probe skipped — missing credentials")
+
+    # Probe OpenAI Docs MCP (public, no token required)
+    if not skip_openai_docs and openai_docs_url:
+        probe = probe_openai_docs(openai_docs_url)
+        report.openai_docs_probe = probe
+        report.openai_docs_configured = probe.ok
+        log.info("openai_docs probe", ok=probe.ok, detail=probe.detail)
+    elif not skip_openai_docs:
+        log.info("openai_docs probe skipped — no URL provided")
 
     return report

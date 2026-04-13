@@ -20,11 +20,12 @@ def _build_section(
     plane_url: str | None = None,
     plane_workspace: str | None = None,
     wikijs_url: str | None = None,
+    openai_docs_url: str | None = None,
 ) -> str:
     """Build the External Systems markdown section."""
     lines = [f"{_SECTION_HEADER}\n"]
 
-    if plane_url or wikijs_url:
+    if plane_url or wikijs_url or openai_docs_url:
         lines.append("Configured external integrations:\n")
 
         if plane_url:
@@ -34,6 +35,11 @@ def _build_section(
 
         if wikijs_url:
             lines.append(f"- **Wiki.js**: `{wikijs_url}`")
+
+        if openai_docs_url:
+            lines.append(f"- **OpenAI Docs MCP**: `{openai_docs_url}`")
+            lines.append("  - Use this MCP server first for OpenAI API, Codex, and SDK questions.")
+            lines.append("  - No authentication required — publicly accessible.")
     else:
         lines.append("No external systems configured yet.")
         lines.append("Run `agent-power-pack init --reconfigure plane` or")
@@ -48,6 +54,7 @@ def update_agents_md_external_systems(
     plane_url: str | None = None,
     plane_workspace: str | None = None,
     wikijs_url: str | None = None,
+    openai_docs_url: str | None = None,
 ) -> None:
     """Append or update the External Systems section in AGENTS.md.
 
@@ -59,7 +66,7 @@ def update_agents_md_external_systems(
         raise FileNotFoundError(msg)
 
     content = agents_md_path.read_text()
-    new_section = _build_section(plane_url, plane_workspace, wikijs_url)
+    new_section = _build_section(plane_url, plane_workspace, wikijs_url, openai_docs_url)
 
     if _SECTION_PATTERN.search(content):
         # Replace existing section
