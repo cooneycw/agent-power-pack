@@ -78,6 +78,32 @@ def probe_wikijs(base_url: str, api_token: str) -> ProbeResult:
     return ProbeResult(ok=True, status_code=200)
 
 
+def probe_openai_docs(base_url: str) -> ProbeResult:
+    """Probe the OpenAI Docs MCP server via ``GET {base_url}``.
+
+    The OpenAI Docs MCP server is a public, external service.
+    A 200 response (or SSE-capable endpoint) confirms reachability.
+    No API token required — the server is publicly accessible.
+    """
+    url = base_url.rstrip("/")
+    try:
+        resp = httpx.get(url, timeout=_TIMEOUT, follow_redirects=True)
+    except httpx.ConnectError as exc:
+        return ProbeResult(ok=False, detail=f"Connection refused: {exc}")
+    except httpx.TimeoutException:
+        return ProbeResult(ok=False, detail=f"Timeout after {_TIMEOUT}s connecting to {url}")
+
+    if resp.status_code == 200:
+        return ProbeResult(ok=True, status_code=200)
+
+    body_preview = resp.text[:200]
+    return ProbeResult(
+        ok=False,
+        status_code=resp.status_code,
+        detail=f"HTTP {resp.status_code}: {body_preview}",
+    )
+
+
 def probe_aws_sidecar(base_url: str = "http://127.0.0.1:2773") -> ProbeResult:
     """Probe the AWS Secrets Manager sidecar via ``GET /healthz``.
 

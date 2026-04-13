@@ -112,6 +112,39 @@ class TestWizardSkipWikijs:
 
 
 @pytest.mark.integration
+class TestWizardSkipOpenaiDocs:
+    """Test the wizard with --skip-openai-docs."""
+
+    def test_openai_docs_not_configured(self, tmp_path: Path) -> None:
+        report = run_wizard(
+            tmp_path / "my-project",
+            skip_plane=True,
+            skip_wikijs=True,
+            skip_openai_docs=True,
+        )
+        assert report.openai_docs_configured is False
+        assert report.openai_docs_probe is None
+
+    def test_openai_docs_skipped_without_url(self, tmp_path: Path) -> None:
+        report = run_wizard(
+            tmp_path / "my-project",
+            skip_plane=True,
+            skip_wikijs=True,
+        )
+        assert report.openai_docs_configured is False
+        assert report.openai_docs_probe is None
+
+    def test_files_still_created(self, tmp_path: Path) -> None:
+        report = run_wizard(
+            tmp_path / "my-project",
+            skip_plane=True,
+            skip_wikijs=True,
+            skip_openai_docs=True,
+        )
+        assert len(report.files_created) == 4
+
+
+@pytest.mark.integration
 class TestWizardIdempotency:
     """Test running the wizard twice on the same directory."""
 
