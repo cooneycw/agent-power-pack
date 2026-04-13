@@ -28,8 +28,8 @@ verify:
 
 lint:
 	uv run ruff check .
-	uv run mypy src tests
-	uv run agent-power-pack lint agents-md
+	uv run mypy src/
+	uv run agent-power-pack lint agents-md --json
 
 test:
 	uv run pytest
