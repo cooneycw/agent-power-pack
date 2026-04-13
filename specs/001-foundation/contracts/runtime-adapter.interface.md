@@ -71,13 +71,15 @@ class InstallReport:
 
 ### `codex-cli`
 
-- Writes to `target_dir/.codex/skills/<skill-name>/agents/openai.yaml`
-  (matching existing codex-power-pack layout).
-- ALSO writes a prompt entrypoint at
-  `target_dir/.codex/prompts/<family>/<skill-name>.md`.
-- User mode (`mode="user"`) additionally merges MCP server registrations
-  into `~/.codex/config.toml` using a conservative three-way merge
-  (preserve existing sections; update only `[mcp.servers.agent-power-pack-*]`
+- Writes to `target_dir/.agents/skills/<skill-name>/SKILL.md`
+  (matching Codex-native skill discovery via `.agents/skills/`).
+- Each SKILL.md MUST include YAML frontmatter with `name`, `description`,
+  `triggers`, `mcp_tools` (if any), and `metadata.source` (pointing back
+  to the manifest path).
+- User mode (`mode="user"`) installs skills into `~/.agents/skills/` and
+  additionally merges MCP server registrations into
+  `~/.codex/config.toml` using a conservative three-way merge
+  (preserve existing sections; update only `[mcp_servers."agent-power-pack-*"]`
   keys we own).
 - MUST NOT create `~/.codex/config.toml` if it does not exist; instead,
   write a fresh file with only our sections.

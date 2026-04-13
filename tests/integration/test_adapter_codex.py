@@ -73,8 +73,8 @@ class TestCodexAdapter:
 
         assert first_files == second_files, "Files changed on second install"
         assert len(report2.files_written) == 0, "Second install should write nothing"
-        assert len(report2.files_skipped) == len(manifests) * 2, (
-            "All agent + prompt files should be skipped"
+        assert len(report2.files_skipped) == len(manifests), (
+            "All SKILL.md files should be skipped"
         )
 
     def test_duration_tracked(self, tmp_path: Path, manifests, adapter):
