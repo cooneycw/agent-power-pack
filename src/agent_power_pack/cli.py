@@ -353,18 +353,18 @@ def docs(
             raise typer.Exit(code=0)
 
         # Run the pipeline
-        result = run_pipeline(
+        pipeline_result = run_pipeline(
             plan_path=plan_path,
             project_root=project_root,
             theme_path=theme_path,
             dry_run=False,
         )
 
-        if not result.success:
+        if not pipeline_result.success:
             console.print("\n[red]Pipeline failed:[/red]")
-            for err in result.errors:
+            for err in pipeline_result.errors:
                 console.print(f"  [red]{err}[/red]")
-            for r in result.results:
+            for r in pipeline_result.results:
                 if not r.success:
                     console.print(f"  [red]{r.artifact_type}: {r.error}[/red]")
             raise typer.Exit(code=1)
@@ -376,8 +376,10 @@ def docs(
         table.add_column("Type", style="bold")
         table.add_column("Status")
         table.add_column("Model")
-        for r in result.results:
-            art = next((a for a in artifacts if a["type"] == r.artifact_type), {})
+        for r in pipeline_result.results:
+            art: dict[str, str] = next(
+                (a for a in artifacts if a["type"] == r.artifact_type), {}
+            )
             style = "green" if r.success else "red"
             status = "ok" if r.success else r.error
             table.add_row(r.artifact_type, f"[{style}]{status}[/{style}]", art.get("model", ""))
@@ -385,12 +387,12 @@ def docs(
 
         if json_output:
             console.print(json.dumps({
-                "success": result.success,
+                "success": pipeline_result.success,
                 "artifacts": [
                     {"type": r.artifact_type, "success": r.success, "error": r.error}
-                    for r in result.results
+                    for r in pipeline_result.results
                 ],
-                "errors": result.errors,
+                "errors": pipeline_result.errors,
             }, indent=2))
 
         console.print("\n[bold green]docs:auto complete[/bold green]")
