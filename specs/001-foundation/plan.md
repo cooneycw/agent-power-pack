@@ -37,8 +37,11 @@ as a `/flow:finish` gate when a PR diff exceeds configurable thresholds.
   repo root.
 **Testing**: `pytest` + `pytest-asyncio` for unit/integration; `testcontainers`
   for MCP container smoke tests; golden-file tests for adapter output per
-  runtime; contract tests for Plane and Wiki.js MCP tools using recorded
-  fixtures (`pytest-recording`/VCR).
+  runtime (shape regression — verifies output structure does not drift);
+  Codex CLI smoke tests in `tests/smoke/` (runtime compatibility — verifies
+  generated artifacts are consumable by the real `codex` binary); contract
+  tests for Plane and Wiki.js MCP tools using recorded fixtures
+  (`pytest-recording`/VCR).
 **Target Platform**: Linux (Ubuntu 22.04 Jammy inside the MCP container;
   developer machines on Linux or macOS). Windows developers via WSL2 only
   for v0.1.0.
