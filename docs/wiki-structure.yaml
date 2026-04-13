@@ -1,0 +1,30 @@
+# Wiki.js Convention Template — Project-Isolated Documentation Namespace
+#
+# Shipped default for agent-power-pack docs pipeline (spec 002, FR-016).
+# docs:start proposes this template during initial setup.
+# Customizations are recorded in docs/plan.yaml (FR-017).
+
+# Project name — replaced by docs:start with the actual project name.
+project: "{project}"
+
+# Wiki.js page paths per artifact type.
+# All paths are prefixed with the project name for namespace isolation.
+paths:
+  guides: "{project}/guides"
+  architecture: "{project}/architecture"
+  api: "{project}/api"
+  adrs: "{project}/adrs"
+  diagrams: "{project}/diagrams"
+  slides: "{project}/slides"
+  changelog: "{project}/changelog"
+
+# Default LLM routing per artifact type (from multi-model research, spec 002).
+# Override per-artifact via the model field in docs/plan.yaml.
+routing_defaults:
+  prose_docs: claude
+  api_reference: gpt-4o
+  c4_diagrams: gemini
+  sequence_diagrams: gemini
+  adrs: claude
+  slides: gpt-4o
+  changelogs: gpt-4o
