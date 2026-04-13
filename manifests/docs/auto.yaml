@@ -1,0 +1,151 @@
+name: auto
+family: docs
+description: >-
+  Read docs/plan.yaml, build a dependency DAG, execute artifact generation in
+  topological order, route each artifact to its assigned LLM via second-opinion
+  MCP, and publish to Wiki.js.
+triggers:
+  - /docs:auto
+  - docs auto
+  - generate docs
+  - generate documentation
+  - run docs pipeline
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: second-opinion
+    tool: review
+  - server: second-opinion
+    tool: start_session
+  - server: second-opinion
+    tool: continue_session
+  - server: wikijs
+    tool: create_page
+  - server: wikijs
+    tool: update_page
+  - server: wikijs
+    tool: list_pages
+attribution: null
+order: 20
+prompt: |
+  # /docs:auto — Multi-Model DAG-Based Documentation Generation
+
+  Read an approved docs/plan.yaml, build a dependency DAG, generate each
+  artifact via its assigned LLM, and publish to Wiki.js.
+
+  ## Prerequisites
+
+  - `docs:analyze` should have been run (produces docs/plan.yaml and
+    docs/theme/theme.yaml).
+  - If docs/plan.yaml does not exist, STOP with:
+    "No docs/plan.yaml found. Run /docs:analyze first."
+
+  ## Steps
+
+  ### Step 1: Validate the plan
+
+  ```bash
+  agent-power-pack docs auto --dry-run
+  ```
+
+  This validates the plan, builds the DAG, and reports the execution order
+  without generating anything. Review the output:
+
+  ```
+  docs:auto dry run
+  =================
+  Artifacts: {N} in {L} levels
+
+  Level 1: {types}
+  Level 2: {types}
+  ...
+  ```
+
+  If validation fails (cycles, missing dependencies), STOP and report.
+
+  ### Step 2: Generate artifacts in order
+
+  For each artifact in topological order:
+
+  1. **Read the artifact's source signals** to gather context.
+  2. **Build the generation prompt** using the artifact type, depth, theme,
+     and source context.
+  3. **Route to the correct LLM**:
+     - If model is `claude`: generate directly (you are Claude).
+     - If model is `gpt-4o`: call `second-opinion.start_session` with
+       `backend: openai` and the generation prompt.
+     - If model is `gemini`: call `second-opinion.start_session` with
+       `backend: gemini` and the generation prompt.
+  4. **For slides** (type: slides):
+     - The LLM generates Python reportlab code.
+     - Execute the code to produce a PDF.
+     - Rasterize to PNGs via PyMuPDF.
+     - Publish PNGs to Wiki.js as a sequenced gallery.
+  5. **For all other types**: publish the Markdown content to Wiki.js.
+  6. **Update plan.yaml**: set `last_commit_sha` to current HEAD.
+
+  ### Step 3: Publish to Wiki.js
+
+  For each generated artifact:
+
+  - If `wiki_page_id` exists in plan.yaml: use `wikijs.update_page` (FR-021).
+  - If no `wiki_page_id`: use `wikijs.create_page`, then save the returned
+    page ID back to plan.yaml.
+  - Page path: use `wiki_path` from the artifact, or construct from the
+    convention template at `docs/wiki-structure.yaml`.
+
+  Validate all paths against the convention template before publishing (FR-008).
+
+  ### Step 4: Summary
+
+  ```
+  docs:auto complete
+  ==================
+  Artifacts generated: {N}
+  Levels executed:     {L}
+
+    Type                  Model     Wiki Path              Status
+    ────────────────────  ────────  ─────────────────────  ──────
+    {type}                {model}   {wiki_path}            {ok|failed}
+    ...
+
+  Plan updated: docs/plan.yaml (last_commit_sha set)
+
+  Next steps:
+    - Review published pages in Wiki.js
+    - Run /docs:update after code changes to keep docs current
+  ```
+
+  ## LLM Routing Table
+
+  | Type | Default Model | Second-Opinion Backend |
+  |---|---|---|
+  | prose_docs | claude | (direct) |
+  | api_reference | gpt-4o | openai |
+  | c4_diagrams | gemini | gemini |
+  | sequence_diagrams | gemini | gemini |
+  | adrs | claude | (direct) |
+  | slides | gpt-4o | openai |
+  | changelogs | gpt-4o | openai |
+  | (custom) | claude | (direct) |
+
+  ## Edge Cases
+
+  - **Circular depends_on**: detected at validation; STOP with cycle report.
+  - **Missing dependency type**: if depends_on references a type not in the
+    plan, STOP with clear error.
+  - **Wiki.js unreachable**: generate content locally (write to
+    docs/generated/<type>.md), report that publish was deferred.
+  - **Second-opinion MCP unreachable**: fall back to generating with Claude
+    (the orchestrating agent). Note the fallback in the summary.
+  - **Slides code execution error**: report the error, STOP. Do not continue
+    to remaining artifacts (fail-fast for v0.1).
+  - **Custom artifact type**: treat as prose, use the claude backend.
+
+  ## Error Handling
+
+  v0.1 is fail-fast — if any artifact fails, the pipeline stops and reports.
+  Interactive recovery (fix/skip/abort) is deferred to v0.2 (FR-009).

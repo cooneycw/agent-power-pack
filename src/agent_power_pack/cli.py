@@ -183,11 +183,12 @@ def lint(
 
 @app.command()
 def docs(
-    step: str = typer.Argument(..., help="Docs step: analyze."),
+    step: str = typer.Argument(..., help="Docs step: analyze, auto."),
     project_name: str = typer.Option(None, "--project", "-p", help="Project name for Wiki.js namespace."),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON output."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Validate plan without generating (auto only)."),
 ) -> None:
-    """Run documentation pipeline steps (analyze)."""
+    """Run documentation pipeline steps (analyze, auto)."""
     import json
     from pathlib import Path
 
@@ -298,8 +299,106 @@ def docs(
         console.print("\n[bold green]docs:analyze complete[/bold green]")
         console.print("  Next: review docs/plan.yaml, then run /docs:auto")
 
+    elif step == "auto":
+        from agent_power_pack.docs.executor import (
+            build_dag,
+            load_plan,
+            run_pipeline,
+        )
+
+        project_root = Path.cwd()
+        plan_path = project_root / "docs" / "plan.yaml"
+        theme_path = project_root / "docs" / "theme" / "theme.yaml"
+
+        if not plan_path.exists():
+            console.print("[red]No docs/plan.yaml found. Run /docs:analyze first.[/red]")
+            raise typer.Exit(code=1)
+
+        console.print("[bold]docs:auto[/bold] — multi-model DAG documentation pipeline")
+
+        # Load and validate plan
+        try:
+            plan = load_plan(plan_path)
+        except (FileNotFoundError, ValueError) as exc:
+            console.print(f"[red]Plan error: {exc}[/red]")
+            raise typer.Exit(code=1)
+
+        artifacts = plan.get("artifacts", [])
+        if not artifacts:
+            console.print("[yellow]No artifacts in plan. Nothing to generate.[/yellow]")
+            raise typer.Exit(code=0)
+
+        # Build and display DAG
+        try:
+            levels = build_dag(artifacts)
+        except ValueError as exc:
+            console.print(f"[red]DAG error: {exc}[/red]")
+            raise typer.Exit(code=1)
+
+        total = sum(len(level) for level in levels)
+        console.print(f"\n  Artifacts: {total} in {len(levels)} levels")
+        for i, level in enumerate(levels, 1):
+            types = [a["type"] for a in level]
+            console.print(f"  Level {i}: {', '.join(types)}")
+
+        if dry_run:
+            console.print("\n[bold green]docs:auto dry run complete[/bold green]")
+            if json_output:
+                console.print(json.dumps({
+                    "dry_run": True,
+                    "artifacts": total,
+                    "levels": len(levels),
+                    "order": [[a["type"] for a in level] for level in levels],
+                }, indent=2))
+            raise typer.Exit(code=0)
+
+        # Run the pipeline
+        result = run_pipeline(
+            plan_path=plan_path,
+            project_root=project_root,
+            theme_path=theme_path,
+            dry_run=False,
+        )
+
+        if not result.success:
+            console.print("\n[red]Pipeline failed:[/red]")
+            for err in result.errors:
+                console.print(f"  [red]{err}[/red]")
+            for r in result.results:
+                if not r.success:
+                    console.print(f"  [red]{r.artifact_type}: {r.error}[/red]")
+            raise typer.Exit(code=1)
+
+        # Display results
+        from rich.table import Table
+
+        table = Table(title="docs:auto Results")
+        table.add_column("Type", style="bold")
+        table.add_column("Status")
+        table.add_column("Model")
+        for r in result.results:
+            art = next((a for a in artifacts if a["type"] == r.artifact_type), {})
+            style = "green" if r.success else "red"
+            status = "ok" if r.success else r.error
+            table.add_row(r.artifact_type, f"[{style}]{status}[/{style}]", art.get("model", ""))
+        console.print(table)
+
+        if json_output:
+            console.print(json.dumps({
+                "success": result.success,
+                "artifacts": [
+                    {"type": r.artifact_type, "success": r.success, "error": r.error}
+                    for r in result.results
+                ],
+                "errors": result.errors,
+            }, indent=2))
+
+        console.print("\n[bold green]docs:auto complete[/bold green]")
+        console.print("  Plan updated: docs/plan.yaml (last_commit_sha set)")
+        console.print("  Next: review published pages, run /docs:update after code changes")
+
     else:
-        console.print(f"[red]Unknown docs step '{step}'. Valid: analyze[/red]")
+        console.print(f"[red]Unknown docs step '{step}'. Valid: analyze, auto[/red]")
         raise typer.Exit(code=1)
 
 
