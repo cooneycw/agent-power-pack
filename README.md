@@ -26,6 +26,13 @@ Short version, per the [Constitution](./.specify/memory/constitution.md):
 - **Plane replaces GitHub Issues** and **Wiki.js replaces
   Confluence-style docs** as the preferred — and default — external
   tools. `gh` issue access remains available as an opt-in fallback.
+- **Documentation pipeline.** `docs:start` scaffolds the theme folder,
+  `docs:analyze` infers visual identity and proposes a plan,
+  `docs:auto` generates artifacts via multi-model DAG execution, and
+  `docs:update` detects stale artifacts by comparing HEAD against
+  per-artifact `last_commit_sha` in `docs/plan.yaml`. The `--check`
+  flag integrates as a soft nudge in `flow:finish`, creating a
+  `docs-stale` issue when documentation drifts.
 - **`grill-me`** (vendored from
   [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/grill-me))
   and **`grill-yourself`** (native pre-flight self-interrogation) are
@@ -37,7 +44,8 @@ Read the full picture in
 [`specs/001-foundation/spec.md`](./specs/001-foundation/spec.md) and the
 [Phase 1 plan artifacts](./specs/001-foundation/) (`plan.md`,
 `research.md`, `data-model.md`, `contracts/`, `quickstart.md`,
-`tasks.md`).
+`tasks.md`). The documentation pipeline is specified in
+[`specs/002-docs-pipeline/spec.md`](./specs/002-docs-pipeline/spec.md).
 
 ## First run
 
@@ -94,7 +102,8 @@ for per-runtime syntax:
   ┌─────────────────────────────────────────────────────────┐
   │  6. flow:finish                                           │
   │     — runs agents-md:lint, make verify, grill-yourself  │
-  │       gate if diff > thresholds, opens the PR           │
+  │       gate if diff > thresholds, docs:update --check    │
+  │       (soft nudge for stale docs), opens the PR         │
   └────────────────────────┬────────────────────────────────┘
                            ↓
   ┌─────────────────────────────────────────────────────────┐
@@ -175,10 +184,11 @@ agent-power-pack/
 ├── ATTRIBUTION.md              # Vendored-skill credits (Principle V)
 ├── manifests/                  # Neutral YAML skill catalog (Principle I)
 ├── adapters/                   # Per-runtime transpilers
-├── src/agent_power_pack/       # Linter, generator, project:init, grill, secrets, cicd
+├── src/agent_power_pack/       # Linter, generator, project:init, grill, secrets, cicd, docs
 ├── mcp_container/              # Single multi-transport MCP container (Principle III)
 ├── vendor/skills/              # Pinned third-party skills (e.g. grill-me)
 ├── specs/001-foundation/       # Spec-kit artifacts for the foundation feature
+├── specs/002-docs-pipeline/    # Spec for LLM-powered documentation pipeline
 └── tests/                      # unit / integration / e2e / perf
 ```
 
