@@ -69,6 +69,27 @@ prompt: |
 
   Exit code: `0` on pass (warnings OK), `1` on any failure.
 
+  ## Step 4: SRE Reasoning (post-validation)
+
+  After running the checklist, apply systemic thinking beyond the rules:
+
+  1. **Pattern recognition**: If you have access to recent pipeline
+     failure history (via `/cicd:pipeline --logs`), look for repeated
+     failures from the same root cause. Two or more failures from the
+     same class = systemic problem, not a one-off bug.
+
+  2. **Implicit contracts**: Identify steps that assume external state
+     (package availability, service health, file existence) without
+     explicitly validating it. These are ticking time bombs.
+
+  3. **Recommend hardening**: When you spot systemic gaps, suggest:
+     - Adding a runtime contract script (validates environment before work)
+     - Adding an artifact validation gate (tests artifact before promotion)
+     - Adding a canary step (validates on one target before fleet rollout)
+     - Replacing implicit checks with explicit sentinel files
+
+  Report any SRE recommendations alongside the checklist results.
+
   ## Error handling
 
   - **Config not found**: suggest `/cicd:init`.

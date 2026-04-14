@@ -479,6 +479,187 @@ def rule_pre_merge_non_prod_test(pipeline: dict[str, Any]) -> WoodpeckerRuleResu
 
 
 # ---------------------------------------------------------------------------
+# Rule: artifact_validation_gate — build artifacts must be validated before promotion
+# ---------------------------------------------------------------------------
+
+_BUILD_KEYWORDS = ("build", "bake", "compile", "package", "bundle", "assemble")
+_VALIDATE_KEYWORDS = ("validate", "contract", "canary", "verify", "smoke", "test-artifact", "check-artifact")
+
+
+def rule_artifact_validation_gate(pipeline: dict[str, Any]) -> WoodpeckerRuleResult:
+    """Build/bake steps that produce artifacts must have a validation step before promotion."""
+    all_steps = _iter_steps(pipeline)
+
+    # Find steps that produce artifacts (build/bake steps)
+    build_step_indices: list[tuple[int, str, str]] = []
+    promote_step_indices: list[tuple[int, str, str]] = []
+    validate_step_indices: list[int] = []
+
+    for idx, (pipe_name, step_name, step) in enumerate(all_steps):
+        name_lower = step_name.lower()
+        commands = step.get("commands", [])
+        cmds_joined = " ".join(str(c) for c in commands) if isinstance(commands, list) else ""
+        combined = f"{name_lower} {cmds_joined.lower()}"
+
+        if any(kw in combined for kw in _BUILD_KEYWORDS):
+            build_step_indices.append((idx, pipe_name, step_name))
+        if any(kw in combined for kw in ("push", "promote", "publish", "release", "deploy")):
+            promote_step_indices.append((idx, pipe_name, step_name))
+        if any(kw in combined for kw in _VALIDATE_KEYWORDS):
+            validate_step_indices.append(idx)
+
+    # No build steps → rule not applicable
+    if not build_step_indices:
+        return WoodpeckerRuleResult(
+            rule_id="artifact_validation_gate",
+            status="pass",
+            rationale="No build/bake steps found; artifact validation gate not required.",
+        )
+
+    # No promote steps → rule not applicable (artifact isn't being promoted)
+    if not promote_step_indices:
+        return WoodpeckerRuleResult(
+            rule_id="artifact_validation_gate",
+            status="pass",
+            rationale="No promotion steps found; artifact validation gate not required.",
+        )
+
+    # Check: there should be a validation step between build and promote
+    for build_idx, build_pipe, build_step in build_step_indices:
+        for promote_idx, promote_pipe, promote_step in promote_step_indices:
+            if promote_idx > build_idx:
+                has_validation_between = any(
+                    build_idx < v_idx < promote_idx for v_idx in validate_step_indices
+                )
+                if not has_validation_between:
+                    return WoodpeckerRuleResult(
+                        rule_id="artifact_validation_gate",
+                        status="fail",
+                        evidence=(
+                            f"Build step '{build_pipe}.{build_step}' is promoted by "
+                            f"'{promote_pipe}.{promote_step}' with no validation gate between them."
+                        ),
+                        rationale=(
+                            "Artifacts (images, AMIs, bundles) should be validated before promotion. "
+                            "Add a validation step (smoke test, contract check, canary) between "
+                            "build and push/promote to catch broken artifacts before they reach production."
+                        ),
+                    )
+
+    return WoodpeckerRuleResult(
+        rule_id="artifact_validation_gate",
+        status="pass",
+        rationale="Build artifacts are validated before promotion.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rule: explicit_runtime_contracts — deploy steps should validate environment
+# ---------------------------------------------------------------------------
+
+_INSTALL_KEYWORDS = ("apt", "apk", "pip", "npm", "yarn", "pnpm", "dnf", "yum", "pacman")
+_CONTRACT_KEYWORDS = ("contract", "validate-runtime", "validate-env", "check-runtime", "runtime-check", "preflight")
+
+
+def rule_explicit_runtime_contracts(pipeline: dict[str, Any]) -> WoodpeckerRuleResult:
+    """Deploy steps that install software should validate the runtime environment explicitly."""
+    violations: list[str] = []
+
+    for pipe_name, step_name, step in _iter_steps(pipeline):
+        name_lower = step_name.lower()
+        commands = step.get("commands", [])
+        cmds_joined = " ".join(str(c) for c in commands) if isinstance(commands, list) else ""
+        combined = f"{name_lower} {cmds_joined.lower()}"
+
+        # Only check deploy-related steps that install packages
+        is_deploy = "deploy" in combined
+        has_install = any(f"{kw} install" in cmds_joined.lower() or f"{kw} add" in cmds_joined.lower() for kw in _INSTALL_KEYWORDS)
+
+        if is_deploy and has_install:
+            has_contract = any(kw in combined for kw in _CONTRACT_KEYWORDS)
+            if not has_contract:
+                violations.append(f"{pipe_name}.{step_name}")
+
+    if not violations:
+        return WoodpeckerRuleResult(
+            rule_id="explicit_runtime_contracts",
+            status="pass",
+            rationale="Deploy steps validate runtime environment or do not install packages.",
+        )
+
+    return WoodpeckerRuleResult(
+        rule_id="explicit_runtime_contracts",
+        status="fail",
+        evidence=f"Deploy steps install packages without runtime contract validation: {'; '.join(violations)}",
+        rationale=(
+            "When deploy steps install system packages (apt, apk, pip, npm), the runtime environment "
+            "should be validated with an explicit contract script. Implicit assumptions about "
+            "available packages/versions fail silently. Add a preflight or contract validation step."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rule: canary_before_fleet — fleet-wide operations need a canary step
+# ---------------------------------------------------------------------------
+
+_FLEET_KEYWORDS = (
+    "asg", "autoscaling", "desired-capacity", "rolling-update", "rollout",
+    "kubectl rollout", "fleet", "scale-up", "scale-out",
+)
+_CANARY_KEYWORDS = ("canary", "single-target", "single-instance", "blue-green", "one-box", "validate-canary")
+
+
+def rule_canary_before_fleet(pipeline: dict[str, Any]) -> WoodpeckerRuleResult:
+    """Fleet-wide operations (ASG refresh, rolling deploy) must have a canary/single-target step first."""
+    all_steps = _iter_steps(pipeline)
+
+    fleet_steps: list[tuple[int, str, str]] = []
+    canary_indices: list[int] = []
+
+    for idx, (pipe_name, step_name, step) in enumerate(all_steps):
+        name_lower = step_name.lower()
+        commands = step.get("commands", [])
+        cmds_joined = " ".join(str(c) for c in commands) if isinstance(commands, list) else ""
+        combined = f"{name_lower} {cmds_joined.lower()}"
+
+        if any(kw in combined for kw in _FLEET_KEYWORDS):
+            fleet_steps.append((idx, pipe_name, step_name))
+        if any(kw in combined for kw in _CANARY_KEYWORDS):
+            canary_indices.append(idx)
+
+    if not fleet_steps:
+        return WoodpeckerRuleResult(
+            rule_id="canary_before_fleet",
+            status="pass",
+            rationale="No fleet-wide operations found; canary step not required.",
+        )
+
+    for fleet_idx, fleet_pipe, fleet_step in fleet_steps:
+        has_canary_before = any(c_idx < fleet_idx for c_idx in canary_indices)
+        if not has_canary_before:
+            return WoodpeckerRuleResult(
+                rule_id="canary_before_fleet",
+                status="fail",
+                evidence=(
+                    f"Fleet operation '{fleet_pipe}.{fleet_step}' has no canary/single-target "
+                    f"step preceding it."
+                ),
+                rationale=(
+                    "Fleet-wide operations (ASG refresh, rolling deploys, kubectl rollout) affect "
+                    "all instances simultaneously. A canary or single-target step must validate "
+                    "the change on one instance before promoting to the entire fleet."
+                ),
+            )
+
+    return WoodpeckerRuleResult(
+        rule_id="canary_before_fleet",
+        status="pass",
+        rationale="Fleet operations are preceded by canary/single-target validation.",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Rule registry
 # ---------------------------------------------------------------------------
 
@@ -493,6 +674,9 @@ RULE_REGISTRY: dict[str, RuleEvaluator] = {
     "explicit_when_depends_on": rule_explicit_when_depends_on,
     "required_agent_labels": rule_required_agent_labels,
     "pre_merge_non_prod_test": rule_pre_merge_non_prod_test,
+    "artifact_validation_gate": rule_artifact_validation_gate,
+    "explicit_runtime_contracts": rule_explicit_runtime_contracts,
+    "canary_before_fleet": rule_canary_before_fleet,
 }
 
 # Rules that cannot be waived — failure is always blocking

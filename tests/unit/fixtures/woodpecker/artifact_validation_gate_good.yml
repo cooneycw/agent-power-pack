@@ -1,0 +1,14 @@
+build-and-push:
+  steps:
+    - name: build-image
+      image: docker:27.1.1
+      commands:
+        - docker build -t myapp:${CI_COMMIT_SHA} .
+    - name: validate-artifact
+      image: alpine:3.19
+      commands:
+        - docker run --rm myapp:${CI_COMMIT_SHA} /app/smoke-test.sh
+    - name: push-image
+      image: docker:27.1.1
+      commands:
+        - docker push myapp:${CI_COMMIT_SHA}
