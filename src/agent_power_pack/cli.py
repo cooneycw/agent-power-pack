@@ -183,12 +183,13 @@ def lint(
 
 @app.command()
 def docs(
-    step: str = typer.Argument(..., help="Docs step: analyze, auto."),
+    step: str = typer.Argument(..., help="Docs step: analyze, auto, update."),
     project_name: str = typer.Option(None, "--project", "-p", help="Project name for Wiki.js namespace."),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON output."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate plan without generating (auto only)."),
+    check: bool = typer.Option(False, "--check", help="Dry-run staleness check (update only)."),
 ) -> None:
-    """Run documentation pipeline steps (analyze, auto)."""
+    """Run documentation pipeline steps (analyze, auto, update)."""
     import json
     from pathlib import Path
 
@@ -399,8 +400,76 @@ def docs(
         console.print("  Plan updated: docs/plan.yaml (last_commit_sha set)")
         console.print("  Next: review published pages, run /docs:update after code changes")
 
+    elif step == "update":
+        from agent_power_pack.docs.staleness import (
+            close_stale_issue,
+            create_or_update_stale_issue,
+            detect_stale_artifacts,
+            format_staleness_report,
+        )
+
+        project_root = Path.cwd()
+        plan_path = project_root / "docs" / "plan.yaml"
+
+        result = detect_stale_artifacts(plan_path, project_root)
+
+        if result.skipped:
+            console.print(f"[yellow]{result.reason}[/yellow]")
+            raise typer.Exit(code=0)
+
+        report = format_staleness_report(result, project_root)
+        console.print(report)
+
+        if json_output:
+            console.print(json.dumps({
+                "check": check,
+                "stale": [
+                    {
+                        "type": sa.artifact_type,
+                        "name": sa.name,
+                        "last_commit_sha": sa.last_commit_sha,
+                        "changed_files": sa.changed_files,
+                    }
+                    for sa in result.stale
+                ],
+                "current": result.current,
+            }, indent=2))
+
+        if check:
+            # FR-012: dry-run mode — report only, do not regenerate
+            if result.has_stale:
+                issue_num = create_or_update_stale_issue(result)
+                if issue_num:
+                    console.print(f"\n[yellow]Docs-stale issue: #{issue_num}[/yellow]")
+            console.print("\n[bold]docs:update --check complete[/bold]")
+            raise typer.Exit(code=0)
+
+        if not result.has_stale:
+            console.print("\n[bold green]All artifacts are up to date.[/bold green]")
+            raise typer.Exit(code=0)
+
+        # Full regeneration: run the pipeline for stale artifacts
+        from agent_power_pack.docs.executor import run_pipeline
+
+        console.print("\n[bold]Regenerating stale artifacts...[/bold]")
+        pipeline_result = run_pipeline(plan_path, project_root)
+
+        if not pipeline_result.success:
+            console.print("\n[red]Regeneration failed:[/red]")
+            for err in pipeline_result.errors:
+                console.print(f"  [red]{err}[/red]")
+            raise typer.Exit(code=1)
+
+        # Close docs-stale issue on success (FR-013)
+        closed = close_stale_issue()
+        if closed:
+            console.print("[green]Docs-stale issue closed.[/green]")
+
+        console.print("\n[bold green]docs:update complete[/bold green]")
+        console.print("  Plan updated: docs/plan.yaml (last_commit_sha set)")
+
     else:
-        console.print(f"[red]Unknown docs step '{step}'. Valid: analyze, auto[/red]")
+        console.print(f"[red]Unknown docs step '{step}'. Valid: analyze, auto, update[/red]")
         raise typer.Exit(code=1)
 
 

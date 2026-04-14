@@ -119,6 +119,22 @@ prompt: |
 
   Report missing targets as warnings; do NOT block the flow.
 
+  ## Step 3c: Docs staleness check (FR-012, opt-in)
+
+  If `docs/plan.yaml` exists, run a staleness check to create a soft
+  nudge for stale documentation:
+
+  ```bash
+  if [[ -f "docs/plan.yaml" ]]; then
+      agent-power-pack docs update --check
+  fi
+  ```
+
+  This is a **soft nudge**, not a hard gate. If stale artifacts are
+  detected, a docs-stale issue is created or updated (FR-013). The
+  flow continues regardless. If `docs/plan.yaml` does not exist, this
+  step is silently skipped (FR-014).
+
   ## Step 4: C4 diagrams to Wiki.js (optional)
 
   If the change touches `src/`, `adapters/`, or `mcp_container/`

@@ -1,0 +1,155 @@
+name: update
+family: docs
+description: >-
+  Compare HEAD against last_commit_sha per artifact in docs/plan.yaml,
+  identify stale artifacts via source_signals, and regenerate them.
+  Use --check for dry-run staleness detection in flow:finish.
+triggers:
+  - /docs:update
+  - docs update
+  - update docs
+  - refresh docs
+  - regenerate stale docs
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: second-opinion
+    tool: review
+  - server: second-opinion
+    tool: start_session
+  - server: second-opinion
+    tool: continue_session
+  - server: wikijs
+    tool: create_page
+  - server: wikijs
+    tool: update_page
+  - server: plane
+    tool: create_issue
+  - server: plane
+    tool: update_issue
+attribution: null
+order: 25
+prompt: |
+  # /docs:update — Git-Based Staleness Detection and Regeneration
+
+  Compare HEAD against `last_commit_sha` per artifact in `docs/plan.yaml`,
+  map changed files to artifacts via `source_signals`, and regenerate
+  stale artifacts. Fully opt-in — no processing without `docs/plan.yaml`
+  (FR-014).
+
+  ## Arguments
+
+  - `--check` (optional): dry-run mode — report stale artifacts without
+    regenerating. Suitable for `flow:finish` integration (FR-012).
+
+  ## Prerequisites
+
+  - `docs/plan.yaml` must exist (created by `docs:analyze`).
+  - Artifacts should have `last_commit_sha` set (from a prior `docs:auto` run).
+
+  ## Steps
+
+  ### Step 1: Check opt-in gate (FR-014)
+
+  ```bash
+  if [[ ! -f "docs/plan.yaml" ]]; then
+      echo "No docs/plan.yaml — staleness check skipped."
+      echo "Run /docs:analyze first to create a documentation plan."
+      exit 0
+  fi
+  ```
+
+  ### Step 2: Detect stale artifacts (FR-011)
+
+  ```bash
+  agent-power-pack docs update --check
+  ```
+
+  This runs the staleness detection:
+  1. Load `docs/plan.yaml` and read each artifact's `last_commit_sha`.
+  2. For each artifact, run `git diff --name-only <last_sha>..HEAD`.
+  3. Map changed files to artifacts via `source_signals` (file or directory match).
+  4. Artifacts with `last_commit_sha: null` are always stale (never generated).
+  5. Report stale vs. current artifacts.
+
+  If `--check` was passed, STOP here with the report.
+
+  ### Step 3: Regenerate stale artifacts
+
+  For each stale artifact, follow the same generation pipeline as `docs:auto`:
+
+  1. Build the generation prompt using artifact type, depth, theme, and
+     source context from `source_signals`.
+  2. Route to the correct LLM (same routing table as `docs:auto`).
+  3. Publish to Wiki.js (update existing page or create new one).
+  4. Update `last_commit_sha` in `docs/plan.yaml` to current HEAD.
+
+  Skip artifacts that are current (not stale).
+
+  ### Step 4: Close docs-stale issue (FR-013)
+
+  After successful regeneration, close any open docs-stale issue:
+
+  ```bash
+  # The CLI handles this automatically:
+  agent-power-pack docs update
+  ```
+
+  If a docs-stale issue (labeled `docs-stale`) is open, it is closed with
+  a resolution comment.
+
+  ### Step 5: Summary
+
+  ```
+  docs:update complete
+  ====================
+  Stale artifacts regenerated: {N}
+  Current artifacts (skipped): {M}
+
+    Type                  Status           Changed Files
+    ────────────────────  ───────────────  ─────────────
+    {type}                regenerated      {N} files
+    {type}                current          —
+    ...
+
+  Plan updated: docs/plan.yaml (last_commit_sha set)
+  Docs-stale issue: #{N} closed | no open issue
+  ```
+
+  ## --check Mode (FR-012)
+
+  When invoked as `docs:update --check` (or via `flow:finish` integration):
+
+  ```
+  docs:update --check
+  ====================
+  Stale:   {N} artifact(s)
+  Current: {M} artifact(s)
+
+    Type                  Status   Changed Files
+    ────────────────────  ───────  ─────────────
+    {type}                STALE    {file1}, {file2}
+    {type}                current  —
+  ```
+
+  If stale artifacts are detected, `flow:finish` creates or updates a
+  Plane/GH issue (FR-013). This is a soft nudge, not a hard gate.
+
+  ## Edge Cases
+
+  - **No `docs/plan.yaml`**: silently skip (FR-014).
+  - **All artifacts current**: report clean, no issue created.
+  - **`last_commit_sha` is null**: artifact treated as stale (never generated).
+  - **Git not available**: report error, skip staleness check.
+  - **`gh` CLI not available**: skip issue creation, log warning.
+  - **Existing open docs-stale issue**: add comment, don't create duplicate.
+  - **Source signals reference deleted files**: ignored (file no longer exists).
+
+  ## Error Handling
+
+  - Staleness detection failure: warn and skip (non-blocking).
+  - Regeneration failure: STOP with the failing artifact's error.
+  - Issue creation failure: warn and continue (non-blocking).
