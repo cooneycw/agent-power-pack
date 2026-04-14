@@ -26,7 +26,29 @@ prompt: |
   - `--path`: Wiki.js page path (default: "architecture/c4-{level}").
   - `--title`: page title (default: "C4 {Level} Diagram").
 
-  ## Steps
+  ## Reconciliation (FR-018)
+
+  Before generating, check whether `docs/plan.yaml` exists at the project root.
+
+  ### Path A — Pipeline mode (plan.yaml exists)
+
+  When `docs/plan.yaml` is present, delegate to the docs pipeline:
+
+  1. Load `docs/plan.yaml` and find the artifact with `type: c4_diagrams`.
+     - If no `c4_diagrams` artifact exists, fall through to Path B (standalone).
+  2. Load the project theme from `docs/theme/theme.yaml` (if present).
+  3. Load the wiki convention from `docs/wiki-structure.yaml` (if present).
+  4. Use the artifact's `wiki_path` from the plan (if set), otherwise use
+     the `--path` argument or the default `"architecture/c4-{level}"`.
+  5. Generate the diagram using the model specified in the artifact's `model`
+     field (respects LLM routing override). If model is not `claude`, route
+     via second-opinion MCP with the appropriate backend.
+  6. Call `wikijs.publish_c4` to publish, using the resolved path and title.
+  7. Report the published page URL and note that pipeline mode was used.
+
+  ### Path B — Standalone mode (no plan.yaml)
+
+  When `docs/plan.yaml` does not exist, operate standalone per 001-foundation:
 
   1. Analyze the current codebase structure for the requested C4 level.
   2. Generate a PlantUML or Mermaid C4 diagram.

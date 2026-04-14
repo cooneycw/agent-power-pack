@@ -13,6 +13,8 @@ from agent_power_pack.docs.executor import (
     execute_slides_pipeline,
     load_plan,
     load_theme,
+    resolve_backend,
+    resolve_model,
     run_pipeline,
     update_plan_sha,
     validate_wiki_path,
@@ -388,3 +390,99 @@ c.save()
     def test_no_pdf_output_raises(self, tmp_path: Path) -> None:
         with pytest.raises(RuntimeError, match="did not produce PDF"):
             execute_slides_pipeline("x = 1", tmp_path)
+
+
+# --- resolve_model / resolve_backend (FR-005, FR-015) ---
+
+@pytest.mark.unit
+class TestResolveModel:
+    def test_explicit_model_override(self) -> None:
+        """AC: Changing model field in plan causes that model to be used."""
+        artifact = {"type": "prose_docs", "model": "gpt-4o"}
+        assert resolve_model(artifact) == "gpt-4o"
+
+    def test_missing_model_uses_routing_default(self) -> None:
+        """AC: Missing model field uses routing table default."""
+        artifact = {"type": "c4_diagrams"}
+        assert resolve_model(artifact) == "gemini"
+
+    def test_missing_model_prose_defaults_to_claude(self) -> None:
+        artifact = {"type": "prose_docs"}
+        assert resolve_model(artifact) == "claude"
+
+    def test_missing_model_api_ref_defaults_to_gpt4o(self) -> None:
+        artifact = {"type": "api_reference"}
+        assert resolve_model(artifact) == "gpt-4o"
+
+    def test_unknown_type_defaults_to_claude(self) -> None:
+        """Custom/unknown types fall back to claude."""
+        artifact = {"type": "custom_runbook"}
+        assert resolve_model(artifact) == "claude"
+
+    def test_empty_model_string_uses_default(self) -> None:
+        """Empty string model is treated as absent."""
+        artifact = {"type": "slides", "model": ""}
+        assert resolve_model(artifact) == "gpt-4o"
+
+    def test_explicit_none_model_uses_default(self) -> None:
+        artifact = {"type": "adrs", "model": None}
+        assert resolve_model(artifact) == "claude"
+
+
+@pytest.mark.unit
+class TestResolveBackend:
+    def test_claude_maps_to_anthropic(self) -> None:
+        assert resolve_backend("claude") == "anthropic"
+
+    def test_gpt4o_maps_to_openai(self) -> None:
+        assert resolve_backend("gpt-4o") == "openai"
+
+    def test_gemini_maps_to_gemini(self) -> None:
+        assert resolve_backend("gemini") == "gemini"
+
+    def test_unknown_model_defaults_to_anthropic(self) -> None:
+        assert resolve_backend("llama-3") == "anthropic"
+
+
+@pytest.mark.unit
+class TestPipelineModelRouting:
+    def test_pipeline_populates_model_and_backend(self, tmp_path: Path) -> None:
+        """AC: Pipeline results include resolved model and backend."""
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide"},
+        ])
+        result = run_pipeline(plan_path, tmp_path)
+        assert result.success
+        assert result.results[0].model == "claude"
+        assert result.results[0].backend == "anthropic"
+
+    def test_pipeline_respects_model_override(self, tmp_path: Path) -> None:
+        """AC: Explicit model override reflected in pipeline result."""
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide", "model": "gpt-4o"},
+        ])
+        result = run_pipeline(plan_path, tmp_path)
+        assert result.success
+        assert result.results[0].model == "gpt-4o"
+        assert result.results[0].backend == "openai"
+
+    def test_pipeline_mixed_models(self, tmp_path: Path) -> None:
+        """Multiple artifacts with different routing."""
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide"},
+            {"type": "c4_diagrams", "name": "C4", "model": "claude"},
+        ])
+        result = run_pipeline(plan_path, tmp_path)
+        assert result.success
+        models = {r.artifact_type: r.model for r in result.results}
+        backends = {r.artifact_type: r.backend for r in result.results}
+        assert models["prose_docs"] == "claude"
+        assert models["c4_diagrams"] == "claude"
+        assert backends["prose_docs"] == "anthropic"
+        assert backends["c4_diagrams"] == "anthropic"
