@@ -1,6 +1,6 @@
 [project]
 name = "agent-power-pack-adapter-gemini"
-version = "0.0.1"
+version = "0.1.0"
 description = "Gemini CLI adapter stub for agent-power-pack"
 requires-python = ">=3.11"
 dependencies = [

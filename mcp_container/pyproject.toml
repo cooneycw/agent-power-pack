@@ -1,6 +1,6 @@
 [project]
 name = "agent-power-pack-mcp-container"
-version = "0.0.1"
+version = "0.1.0"
 description = "Single multi-transport MCP container for agent-power-pack"
 requires-python = ">=3.11"
 dependencies = [
