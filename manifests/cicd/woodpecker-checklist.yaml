@@ -24,6 +24,8 @@ prompt: |
 
   ## Rules checked
 
+  ### Structural rules (from woodpecker-baseline)
+
   1. **pinned_images** — No `:latest` tags; every image must use a pinned version.
   2. **safe_directory** — `git config --global safe.directory` set for root-in-container ops.
   3. **no_unjustified_failure_ignore** — Every `failure: ignore` must have a `failure_justification`.
@@ -34,6 +36,16 @@ prompt: |
   8. **explicit_when_depends_on** — Use explicit `when` filters and `depends_on`, not YAML ordering.
   9. **required_agent_labels** — Deploy pipelines must specify agent labels.
   10. **pre_merge_non_prod_test** — A test/staging deploy must precede production deploy.
+
+  ### Hardening rules (SRE patterns — issue #179)
+
+  11. **artifact_validation_gate** — Build/bake steps must have a validation step
+      (smoke test, contract check) between build and push/promote.
+  12. **explicit_runtime_contracts** — Deploy steps that install packages (`apk add`,
+      `pip install`, `npm install`) must validate the runtime environment with a
+      contract or preflight script.
+  13. **canary_before_fleet** — Fleet-wide operations (ASG refresh, `kubectl rollout`,
+      rolling deploys) must be preceded by a canary/single-target validation step.
 
   ## Usage
 

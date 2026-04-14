@@ -66,6 +66,27 @@ prompt: |
   Validate: /cicd:check .woodpecker/infra.yml
   ```
 
+  ## Step 4: SRE Reasoning (post-generation)
+
+  After generating the infrastructure pipeline, apply systemic thinking:
+
+  1. **Artifact validation**: Every container image built must be smoke-
+     tested (health check, port probe) before push. Every AMI baked must
+     be validated via a contract script before fleet promotion.
+
+  2. **Runtime contracts**: If deploy steps install system packages
+     (`apk add`, `apt install`, `pip install`), add an explicit contract
+     validation step. Package availability is an implicit assumption
+     that breaks silently (e.g., Alpine 3.21 broke `aws-cli` via pyexpat).
+
+  3. **Canary before fleet**: If the pipeline refreshes an ASG, does a
+     rolling deploy, or runs `kubectl rollout`, add a canary step that
+     validates a single instance before promoting to the fleet.
+
+  4. **Failure class prevention**: Think beyond the immediate pipeline.
+     What categories of failure could this infrastructure change introduce?
+     Propose validation gates that prevent the class, not just the instance.
+
   ## Error handling
 
   - **No infrastructure files**: suggest `/cicd:infra-init` first.

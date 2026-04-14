@@ -106,6 +106,32 @@ prompt: |
     3. git push — trigger the first pipeline run
   ```
 
+  ## Step 6: SRE Reasoning (post-validation)
+
+  After generating and validating the pipeline, apply systemic thinking:
+
+  1. **What class of failure could this pipeline miss?**
+     - Are there implicit contracts (e.g., "git must be present",
+       "Python version must be X") that aren't validated explicitly?
+     - If an artifact is built, is it tested before promotion?
+     - If deploying to a fleet, is there a canary stage?
+
+  2. **Would repeated failures from the same root cause be caught?**
+     - Look for steps that depend on external state (AMI contents,
+       container base images, network availability) without validating it.
+     - If a step can fail silently, add an explicit contract check.
+
+  3. **Propose hardening when you see patterns:**
+     - "Should we add a runtime contract script that validates
+       the environment before the main work begins?"
+     - "Should we validate this artifact on a canary before
+       promoting to the fleet?"
+     - "This implicit check (e.g., `test -d .git`) should be replaced
+       with an explicit sentinel file or contract."
+
+  Don't just generate a pipeline — harden it against categories of
+  failure. Think: "What would catch this *before* production next time?"
+
   ## Error handling
 
   - **Existing config**: warn and ask before overwriting.

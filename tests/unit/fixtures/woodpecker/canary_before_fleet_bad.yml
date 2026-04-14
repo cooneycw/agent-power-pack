@@ -1,0 +1,6 @@
+deploy:
+  steps:
+    - name: fleet-rollout
+      image: alpine:3.19
+      commands:
+        - aws autoscaling start-instance-refresh --auto-scaling-group-name prod-asg

@@ -1,0 +1,196 @@
+name: harden
+family: cicd
+description: >-
+  Analyze recent pipeline failures, identify systemic patterns, and propose
+  hardening measures — runtime contracts, validation gates, and canary steps.
+  Addresses issue #179: proactive SRE thinking after repeated failures.
+triggers:
+  - /cicd:harden
+  - cicd harden
+  - harden pipeline
+  - propose validation gates
+  - analyze pipeline failures
+  - why does this keep failing
+runtimes:
+  - claude-code
+  - codex-cli
+  - gemini-cli
+  - cursor
+mcp_tools:
+  - server: woodpecker
+    tool: list_pipelines
+  - server: woodpecker
+    tool: get_pipeline
+  - server: woodpecker
+    tool: get_pipeline_logs
+attribution: null
+order: 25
+prompt: |
+  # /cicd:harden — Systemic Pipeline Hardening
+
+  Analyze recent pipeline failures, identify repeated failure patterns,
+  and propose systemic hardening measures. This skill embodies SRE
+  thinking: prevent *classes* of failures, not just individual instances.
+
+  ## When to use
+
+  - After seeing 2+ pipeline failures from the same root cause
+  - When a pipeline fix addresses symptoms but not the underlying issue
+  - When you want a proactive review of pipeline resilience
+  - After any infrastructure change (AMI bake, container rebuild, deploy)
+
+  ## Arguments
+
+  - `--repo` (optional): repository name. Default: current repo.
+  - `--lookback` (optional): number of recent pipelines to analyze.
+    Default: 20.
+  - `--focus` (optional): specific failure class to investigate
+    (e.g., `package-install`, `artifact-build`, `deploy-rollout`).
+
+  ## Step 1: Gather failure history
+
+  Use `woodpecker.list_pipelines` to fetch recent pipeline runs.
+  For each failed pipeline, use `woodpecker.get_pipeline` and
+  `woodpecker.get_pipeline_logs` to collect:
+
+  - Which step failed
+  - The error message / exit code
+  - The commands that were running
+  - Whether the same step has failed before
+
+  If Woodpecker is not available, fall back to analyzing the
+  `.woodpecker.yml` (or equivalent) statically and look for
+  known anti-patterns.
+
+  ## Step 2: Classify failures by root cause
+
+  Group failures into categories:
+
+  | Category | Signals |
+  |---|---|
+  | **Package/dependency** | `apk add`, `pip install`, `npm install` failures; version conflicts; missing packages |
+  | **Artifact integrity** | Image build failures; corrupt AMIs; missing files in built artifacts |
+  | **Environment drift** | Different behavior in CI vs. local; base image changes breaking assumptions |
+  | **Deploy race** | Stale commits deployed; concurrent deploys conflicting; fleet partially updated |
+  | **Implicit contract** | Steps assuming file/dir/service exists without checking; `.git` detection; version assumptions |
+  | **External dependency** | Registry unavailable; API rate limits; DNS failures; certificate expiry |
+
+  ## Step 3: Propose hardening for each category
+
+  For each failure category with 2+ instances (or high severity):
+
+  ### 3a. Runtime Contract Scripts
+
+  When deploy steps depend on implicit assumptions about the
+  environment (packages installed, services running, files present):
+
+  ```
+  Propose: Create a runtime contract script that validates
+  the environment before the main work begins.
+
+  Example: worker-runtime-contract.sh
+    #!/bin/sh
+    set -e
+    command -v python3 || { echo "FAIL: python3 not found"; exit 1; }
+    python3 -c "import pyexpat" || { echo "FAIL: pyexpat broken"; exit 1; }
+    test -f /app/config.yml || { echo "FAIL: config missing"; exit 1; }
+    echo "Runtime contract: PASS"
+  ```
+
+  ### 3b. Artifact Validation Gates
+
+  When build/bake steps produce artifacts that are promoted without
+  testing:
+
+  ```
+  Propose: Add a validation step between build and promotion.
+
+  Example: validate-worker-ami-canary.sh
+    #!/bin/sh
+    set -e
+    INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID ...)
+    aws ec2 wait instance-status-ok --instance-ids $INSTANCE_ID
+    ssh ec2-user@$INSTANCE_IP "./runtime-contract.sh"
+    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+    echo "AMI validation: PASS"
+  ```
+
+  ### 3c. Canary Steps
+
+  When fleet-wide operations run without single-target validation:
+
+  ```
+  Propose: Deploy to one target first, validate, then promote
+  to the fleet.
+
+  Pattern:
+    1. Deploy canary (single instance / single pod)
+    2. Run health check + contract validation on canary
+    3. Wait for observation period
+    4. Promote to fleet (ASG refresh / rolling deploy)
+  ```
+
+  ### 3d. Sentinel Replacements
+
+  When steps use implicit detection (e.g., `test -d .git`) that
+  can break when the environment changes:
+
+  ```
+  Propose: Replace implicit detection with an explicit sentinel
+  file created by a known-good step.
+
+  Example:
+    Build step:  touch /app/.build-complete
+    Deploy step: test -f /app/.build-complete || exit 1
+  ```
+
+  ## Step 4: Generate hardening artifacts
+
+  For each proposed hardening measure, generate:
+
+  1. The validation/contract script (if applicable)
+  2. Updated pipeline YAML with new validation steps
+  3. Documentation explaining what each gate catches
+
+  Run `cicd:woodpecker-checklist` on any modified pipeline to ensure
+  it still passes all rules.
+
+  ## Step 5: Report
+
+  ```
+  cicd:harden — Pipeline Hardening Report
+
+    Analyzed: {N} recent pipelines ({F} failed)
+
+    Failure Patterns:
+      ▸ Package/dependency  — {count} failures
+        Root cause: {description}
+        Hardening: runtime contract script (scripts/validate-runtime.sh)
+
+      ▸ Artifact integrity  — {count} failures
+        Root cause: {description}
+        Hardening: validation gate between build and push
+
+      ▸ Implicit contract   — {count} failures
+        Root cause: {description}
+        Hardening: sentinel file replacing implicit detection
+
+    Files generated:
+      + scripts/validate-runtime.sh
+      + scripts/validate-artifact.sh
+      ~ .woodpecker.yml (added validation steps)
+
+    Next steps:
+      1. Review generated scripts
+      2. /cicd:check — validate updated pipeline
+      3. /cicd:smoke — test the hardened pipeline
+  ```
+
+  ## Error handling
+
+  - **No failures found**: report the pipeline is healthy; still run
+    a static analysis for implicit contracts and missing validation gates.
+  - **Woodpecker unavailable**: fall back to static analysis of the
+    pipeline YAML file only.
+  - **Single failure**: analyze it but note that a single instance
+    doesn't yet indicate a systemic pattern — recommend monitoring.

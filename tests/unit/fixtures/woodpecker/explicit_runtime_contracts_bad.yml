@@ -1,0 +1,7 @@
+deploy:
+  steps:
+    - name: deploy-app
+      image: alpine:3.19
+      commands:
+        - apk add --no-cache curl jq
+        - ./deploy.sh production
