@@ -16,6 +16,8 @@ from typing import Any
 import structlog
 from ruamel.yaml import YAML
 
+from agent_power_pack.docs.signal_detector import ROUTING_DEFAULTS
+
 logger = structlog.get_logger()
 
 # Maps plan.yaml model names to second-opinion MCP backend identifiers.
@@ -24,6 +26,28 @@ MODEL_TO_BACKEND: dict[str, str] = {
     "gpt-4o": "openai",
     "gemini": "gemini",
 }
+
+def resolve_model(artifact: dict[str, Any]) -> str:
+    """Resolve the LLM model for an artifact (FR-005).
+
+    Uses the explicit ``model`` field if set, otherwise falls back to
+    ``ROUTING_DEFAULTS`` for the artifact type, then ``"claude"`` as the
+    ultimate default for unknown/custom types.
+    """
+    explicit = artifact.get("model")
+    if explicit:
+        return str(explicit)
+    art_type = artifact.get("type", "")
+    return ROUTING_DEFAULTS.get(art_type, "claude")
+
+
+def resolve_backend(model: str) -> str:
+    """Map a model name to its second-opinion MCP backend identifier (FR-005).
+
+    Unknown models are routed to ``"anthropic"`` (Claude) as the safe default.
+    """
+    return MODEL_TO_BACKEND.get(model, "anthropic")
+
 
 # Artifact types that produce Mermaid diagram output (not Markdown prose).
 MERMAID_TYPES: frozenset[str] = frozenset({"c4_diagrams", "sequence_diagrams"})
@@ -40,6 +64,8 @@ class ArtifactResult:
     success: bool
     content: str = ""
     error: str = ""
+    model: str = ""
+    backend: str = ""
     wiki_page_id: int | None = None
     output_files: list[str] = field(default_factory=list)
 
@@ -510,6 +536,10 @@ def run_pipeline(
                 pipeline_result.success = False
                 return pipeline_result  # Stop on convention violation
 
+            # Resolve LLM routing (FR-005)
+            model = resolve_model(artifact)
+            backend = resolve_backend(model)
+
             # Build the generation prompt
             prompt = build_generation_prompt(artifact, theme, project_root)
 
@@ -518,6 +548,8 @@ def run_pipeline(
                 artifact_type=art_type,
                 success=True,
                 content=prompt,
+                model=model,
+                backend=backend,
             )
 
             # Handle slides pipeline specially
@@ -530,6 +562,6 @@ def run_pipeline(
             if current_sha:
                 update_plan_sha(plan_path, art_type, current_sha)
 
-            logger.info("Artifact prepared", type=art_type, model=artifact.get("model"))
+            logger.info("Artifact prepared", type=art_type, model=model, backend=backend)
 
     return pipeline_result
