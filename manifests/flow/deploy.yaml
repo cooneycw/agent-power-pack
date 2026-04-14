@@ -113,6 +113,36 @@ prompt: |
 
   Non-waivable failures STOP the deploy.
 
+  ## Step 5b: Bootstrap dependency gate (issue #180)
+
+  If `.specify/bootstrap-deps.yaml` exists, check whether the current
+  diff touches any declared admin-only bootstrap dependencies:
+
+  ```bash
+  if [[ -f ".specify/bootstrap-deps.yaml" ]] && command -v agent-power-pack >/dev/null 2>&1; then
+      agent-power-pack cicd bootstrap-check
+      BOOT_EXIT=$?
+      if [[ $BOOT_EXIT -ne 0 ]]; then
+          echo ""
+          echo "BLOCKED: Admin-only bootstrap dependencies were modified."
+          echo "Manual apply is required outside CI before deploying."
+          echo ""
+          echo "Review .specify/bootstrap-deps.yaml for required manual steps."
+          echo "After completing them, record the apply:"
+          echo '  echo "$(git rev-parse HEAD) $(date -Iseconds)" > .specify/bootstrap-applied.lock'
+          exit 1
+      fi
+  fi
+  ```
+
+  This gate blocks deploy when bootstrap files (IAM policies, terraform
+  modules for IAM, CloudFormation IAM resources) have been changed but
+  the manual apply has not been recorded. The gate passes silently when:
+
+  - `.specify/bootstrap-deps.yaml` does not exist (no boundaries declared)
+  - No changed files match the declared bootstrap paths
+  - `.specify/bootstrap-applied.lock` contains the current HEAD SHA
+
   ## Step 6: Security gate
 
   ```bash
@@ -224,6 +254,7 @@ prompt: |
   - **No Makefile**: STOP at Step 2 with guidance.
   - **Target not found**: STOP at Step 3, list available targets.
   - **Woodpecker checklist fail**: STOP at Step 5.
+  - **Bootstrap dependency blocked**: STOP at Step 5b. Manual apply required.
   - **Security gate CRITICAL**: STOP at Step 6.
   - **Grill verdict `no`**: STOP at Step 7.
   - **Deploy exit non-zero**: report at Step 11; no rollback.

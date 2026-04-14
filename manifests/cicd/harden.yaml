@@ -73,6 +73,7 @@ prompt: |
   | **Environment drift** | Different behavior in CI vs. local; base image changes breaking assumptions |
   | **Deploy race** | Stale commits deployed; concurrent deploys conflicting; fleet partially updated |
   | **Implicit contract** | Steps assuming file/dir/service exists without checking; `.git` detection; version assumptions |
+  | **Bootstrap boundary** | Deploy depends on admin-only IAM/infra that requires manual apply outside CI; authorization errors on permissions that exist in code but haven't been applied |
   | **External dependency** | Registry unavailable; API rate limits; DNS failures; certificate expiry |
 
   ## Step 3: Propose hardening for each category
@@ -130,7 +131,35 @@ prompt: |
     4. Promote to fleet (ASG refresh / rolling deploy)
   ```
 
-  ### 3d. Sentinel Replacements
+  ### 3d. Bootstrap Dependency Declarations
+
+  When deploys fail because admin-only infrastructure (IAM roles,
+  VPC peering, manual terraform applies) hasn't been applied yet:
+
+  ```
+  Propose: Declare bootstrap boundaries in .specify/bootstrap-deps.yaml
+  so flow:deploy blocks until manual apply is confirmed.
+
+  Example: .specify/bootstrap-deps.yaml
+    version: "1.0"
+    dependencies:
+      - id: iam-worker-role
+        description: IAM role for worker EC2 instances
+        paths:
+          - "infra/bootstrap/iam/*.tf"
+        verify_command: "aws iam get-role --role-name worker-role"
+        manual_steps:
+          - "cd infra/bootstrap/iam && terraform apply"
+
+  After manual apply, record it:
+    echo "$(git rev-parse HEAD) $(date -Iseconds)" > .specify/bootstrap-applied.lock
+  ```
+
+  This prevents the class of failure where code references IAM
+  permissions or infrastructure that exists in version control but
+  hasn't been applied to the live environment yet.
+
+  ### 3e. Sentinel Replacements
 
   When steps use implicit detection (e.g., `test -d .git`) that
   can break when the environment changes:

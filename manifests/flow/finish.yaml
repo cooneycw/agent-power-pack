@@ -150,6 +150,30 @@ prompt: |
   is not configured. Legacy PowerPoint export (`/docs:pptx`) is NOT
   available in v0.1.0 (FR-011) and must not be attempted.
 
+  ## Step 4b: Bootstrap dependency warning (issue #180)
+
+  If `.specify/bootstrap-deps.yaml` exists, check whether the current
+  diff touches any declared admin-only bootstrap dependencies. This is
+  a **warning** at finish time (not blocking), because the actual block
+  happens at deploy time. The purpose here is to surface the reminder
+  in the PR body so reviewers know manual steps are required.
+
+  ```bash
+  if [[ -f ".specify/bootstrap-deps.yaml" ]] && command -v agent-power-pack >/dev/null 2>&1; then
+      BOOT_RESULT=$(agent-power-pack cicd bootstrap-check --json 2>/dev/null || echo '{"status":"pass"}')
+      BOOT_STATUS=$(echo "$BOOT_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','pass'))")
+      if [[ "$BOOT_STATUS" == "blocked" ]]; then
+          echo "WARNING: This PR touches admin-only bootstrap dependencies."
+          echo "Manual apply will be required before deploy."
+          echo "Details will be included in the PR body."
+      fi
+  fi
+  ```
+
+  If bootstrap dependencies are detected, include a "Bootstrap
+  dependencies" section in the PR body (Step 8) listing the required
+  manual steps.
+
   ## Step 5: Commit any uncommitted changes
 
   ```bash
@@ -212,6 +236,10 @@ prompt: |
   - [x] \`agents-md:lint\` passed
   - [x] grill-yourself: {verdict} (transcript: {path or "skipped"})
   - [x] second-opinion review: {short summary or "skipped"}
+
+  ## Bootstrap dependencies
+  <!-- If Step 4b detected bootstrap deps, list them here -->
+  <!-- Otherwise: "None detected" -->
 
   ## Test plan
 
