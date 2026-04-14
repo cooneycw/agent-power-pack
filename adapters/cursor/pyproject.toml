@@ -1,6 +1,6 @@
 [project]
 name = "agent-power-pack-adapter-cursor"
-version = "0.0.1"
+version = "0.1.0"
 description = "Cursor adapter stub for agent-power-pack"
 requires-python = ">=3.11"
 dependencies = [

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 log = get_logger("transports.dual")
 
 
-def _build_health_app(server_name: str, version: str = "0.0.1") -> Starlette:
+def _build_health_app(server_name: str, version: str = "0.1.0") -> Starlette:
     """Build a minimal Starlette app with a /healthz endpoint."""
 
     async def healthz(_request: Request) -> JSONResponse:
