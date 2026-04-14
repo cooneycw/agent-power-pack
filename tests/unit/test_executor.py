@@ -8,8 +8,12 @@ import pytest
 from ruamel.yaml import YAML
 
 from agent_power_pack.docs.executor import (
+    ArtifactFailure,
+    ArtifactStatus,
+    apply_artifact_override,
     build_dag,
     build_generation_prompt,
+    classify_error,
     execute_slides_pipeline,
     load_plan,
     load_theme,
@@ -486,3 +490,151 @@ class TestPipelineModelRouting:
         assert models["c4_diagrams"] == "claude"
         assert backends["prose_docs"] == "anthropic"
         assert backends["c4_diagrams"] == "anthropic"
+
+
+# --- classify_error (FR-009) ---
+
+@pytest.mark.unit
+class TestClassifyError:
+    def test_missing_api_key(self) -> None:
+        artifact = {"type": "api_reference", "model": "gpt-4o"}
+        failure = classify_error(ValueError("Missing API key for openai"), artifact)
+        assert failure.error_type == "missing_api_key"
+        assert "gpt-4o" in failure.suggested_fix
+
+    def test_code_execution_error(self) -> None:
+        artifact = {"type": "slides", "model": "gpt-4o"}
+        failure = classify_error(RuntimeError("Slides code execution failed: bad canvas"), artifact)
+        assert failure.error_type == "code_execution"
+        assert "reportlab" in failure.suggested_fix
+
+    def test_validation_error(self) -> None:
+        artifact = {"type": "prose_docs", "model": "claude"}
+        failure = classify_error(ValueError("wiki_path does not match convention"), artifact)
+        assert failure.error_type == "validation"
+
+    def test_unknown_error(self) -> None:
+        artifact = {"type": "prose_docs", "model": "claude"}
+        failure = classify_error(Exception("something unexpected"), artifact)
+        assert failure.error_type == "unknown"
+        assert failure.artifact_type == "prose_docs"
+
+    def test_preserves_artifact_config(self) -> None:
+        artifact = {"type": "slides", "model": "gpt-4o", "depth": "detailed"}
+        failure = classify_error(ValueError("API key missing"), artifact)
+        assert failure.artifact_config["model"] == "gpt-4o"
+        assert failure.artifact_config["depth"] == "detailed"
+
+
+# --- apply_artifact_override (FR-009) ---
+
+@pytest.mark.unit
+class TestApplyArtifactOverride:
+    def test_override_model(self) -> None:
+        artifact = {"type": "slides", "model": "gpt-4o", "depth": "overview"}
+        updated = apply_artifact_override(artifact, {"model": "claude"})
+        assert updated["model"] == "claude"
+        assert updated["depth"] == "overview"
+        # Original unchanged
+        assert artifact["model"] == "gpt-4o"
+
+    def test_override_multiple_fields(self) -> None:
+        artifact = {"type": "prose_docs", "model": "gemini", "depth": "overview"}
+        updated = apply_artifact_override(artifact, {"model": "claude", "depth": "detailed"})
+        assert updated["model"] == "claude"
+        assert updated["depth"] == "detailed"
+
+    def test_empty_override(self) -> None:
+        artifact = {"type": "prose_docs", "model": "claude"}
+        updated = apply_artifact_override(artifact, {})
+        assert updated == artifact
+
+
+# --- Pipeline failure recovery (FR-009) ---
+
+@pytest.mark.unit
+class TestPipelineFailureRecovery:
+    def test_convention_violation_continues_pipeline(self, tmp_path: Path) -> None:
+        """FR-009: Convention violation records failure but continues to next artifact."""
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide", "wiki_path": "bad/invalid/path"},
+            {"type": "adrs", "name": "ADRs"},
+        ])
+        conv_path = tmp_path / "docs" / "wiki-structure.yaml"
+        _write_convention(conv_path)
+        result = run_pipeline(plan_path, tmp_path, convention_path=conv_path)
+        assert not result.success
+        assert len(result.failures) == 1
+        assert result.failures[0].artifact_type == "prose_docs"
+        assert result.failures[0].error_type == "validation"
+        # Second artifact still processed
+        assert len(result.results) == 2
+        adrs_result = [r for r in result.results if r.artifact_type == "adrs"][0]
+        assert adrs_result.success
+
+    def test_failed_artifact_has_status_and_failure(self, tmp_path: Path) -> None:
+        """FR-009: Failed artifacts have status=failed and a populated failure field."""
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide", "wiki_path": "bad/path"},
+        ])
+        conv_path = tmp_path / "docs" / "wiki-structure.yaml"
+        _write_convention(conv_path)
+        result = run_pipeline(plan_path, tmp_path, convention_path=conv_path)
+        failed = result.results[0]
+        assert failed.status == ArtifactStatus.failed
+        assert failed.failure is not None
+        assert isinstance(failed.failure, ArtifactFailure)
+
+    def test_successful_artifact_has_status_success(self, tmp_path: Path) -> None:
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide"},
+        ])
+        result = run_pipeline(plan_path, tmp_path)
+        assert result.success
+        assert result.results[0].status == ArtifactStatus.success
+
+    def test_no_sha_update_for_failed_artifact(self, tmp_path: Path) -> None:
+        """FR-010: last_commit_sha not updated for failed artifacts."""
+        import subprocess
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide", "wiki_path": "bad/path", "last_commit_sha": None},
+            {"type": "adrs", "name": "ADRs", "last_commit_sha": None},
+        ])
+        conv_path = tmp_path / "docs" / "wiki-structure.yaml"
+        _write_convention(conv_path)
+        # Initialize a git repo for SHA detection
+        env = {"GIT_AUTHOR_NAME": "Test", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "t@t", "HOME": str(tmp_path)}
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, env={**env, "PATH": "/usr/bin:/bin"})
+        subprocess.run(["git", "commit", "--allow-empty", "-m", "init"], cwd=tmp_path, capture_output=True, env={**env, "PATH": "/usr/bin:/bin"})
+
+        run_pipeline(plan_path, tmp_path, convention_path=conv_path)
+
+        yaml = YAML()
+        with open(plan_path) as f:
+            plan = yaml.load(f)
+        # prose_docs failed — SHA should NOT be updated
+        assert plan["artifacts"][0]["last_commit_sha"] is None
+        # adrs succeeded — SHA should be updated
+        assert plan["artifacts"][1]["last_commit_sha"] is not None
+
+    def test_pipeline_result_failure_counts(self, tmp_path: Path) -> None:
+        """FR-009: PipelineResult tracks failure list."""
+        plan_path = tmp_path / "docs" / "plan.yaml"
+        plan_path.parent.mkdir(parents=True)
+        _write_plan(plan_path, [
+            {"type": "prose_docs", "name": "Guide", "wiki_path": "bad/path1"},
+            {"type": "adrs", "name": "ADRs", "wiki_path": "bad/path2"},
+        ])
+        conv_path = tmp_path / "docs" / "wiki-structure.yaml"
+        _write_convention(conv_path)
+        result = run_pipeline(plan_path, tmp_path, convention_path=conv_path)
+        assert len(result.failures) == 2
+        assert not result.success

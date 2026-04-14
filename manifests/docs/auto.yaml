@@ -106,17 +106,25 @@ prompt: |
   ==================
   Artifacts generated: {N}
   Levels executed:     {L}
+  Skipped:             {S}
+  Retried:             {R}
 
     Type                  Model     Wiki Path              Status
-    ────────────────────  ────────  ─────────────────────  ──────
-    {type}                {model}   {wiki_path}            {ok|failed}
+    ────────────────────  ────────  ─────────────────────  ──────────
+    {type}                {model}   {wiki_path}            {ok|retried|skipped|failed}
     ...
 
-  Plan updated: docs/plan.yaml (last_commit_sha set)
+  Failures encountered:
+    - {type}: {error} ({disposition})
+    ...
+  (omit this section if no failures)
+
+  Plan updated: docs/plan.yaml (last_commit_sha set for ok/retried only)
 
   Next steps:
     - Review published pages in Wiki.js
     - Run /docs:update after code changes to keep docs current
+    - Re-run /docs:auto to retry any skipped artifacts
   ```
 
   ## LLM Routing Table
@@ -141,11 +149,46 @@ prompt: |
     docs/generated/<type>.md), report that publish was deferred.
   - **Second-opinion MCP unreachable**: fall back to generating with Claude
     (the orchestrating agent). Note the fallback in the summary.
-  - **Slides code execution error**: report the error, STOP. Do not continue
-    to remaining artifacts (fail-fast for v0.1).
+  - **Slides code execution error**: triggers interactive failure recovery
+    (see Error Handling below).
   - **Custom artifact type**: treat as prose, use the claude backend.
 
-  ## Error Handling
+  ## Error Handling (FR-009: Interactive Failure Recovery)
 
-  v0.1 is fail-fast — if any artifact fails, the pipeline stops and reports.
-  Interactive recovery (fix/skip/abort) is deferred to v0.2 (FR-009).
+  When an artifact fails during generation (missing API key, code execution
+  error, validation failure, etc.), do NOT stop the pipeline. Instead:
+
+  1. **Report the failure** with diagnostic details:
+     ```
+     Artifact '{type}' generation failed.
+     Type:       {artifact_type}
+     Error:      {error message}
+     Error type: {error_type}
+     Suggestion: {suggested_fix}
+     ```
+
+  2. **Ask the developer**: "Fix and retry, skip, or abort?"
+
+     - **Fix and retry**: Ask what to change (e.g., "use claude instead of
+       gpt-4o", "adjust slide dimensions"). Apply the override to the artifact
+       config and re-run generation for that artifact only. If retry succeeds,
+       mark as "retried" and continue.
+     - **Skip**: Mark the artifact as "skipped" and continue to remaining
+       artifacts in the DAG. Already-published artifacts remain untouched.
+     - **Abort**: Stop execution immediately. Already-published artifacts
+       remain in Wiki.js. Report what was completed and what was not.
+
+  3. **Collect all failures** and report at the end of the run:
+     ```
+     Failures encountered:
+       - {type}: {error} (skipped | retried with {override} | aborted)
+     ```
+
+  4. **Summary status per artifact** uses these markers:
+     - `ok`      — generated and published successfully
+     - `retried` — failed, then retried with override and succeeded
+     - `skipped` — failed, developer chose to skip
+     - `failed`  — failed, developer chose to abort (remaining artifacts not run)
+
+  The `last_commit_sha` in plan.yaml is only updated for artifacts with
+  status `ok` or `retried` (FR-010).
