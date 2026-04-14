@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
+from enum import Enum
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,31 @@ MERMAID_TYPES: frozenset[str] = frozenset({"c4_diagrams", "sequence_diagrams"})
 SLIDES_TYPE: str = "slides"
 
 
+class ArtifactStatus(Enum):
+    """Status of an artifact after pipeline execution (FR-009)."""
+
+    success = "success"
+    skipped = "skipped"
+    retried = "retried"
+    failed = "failed"
+    pending = "pending"
+
+
+@dataclass
+class ArtifactFailure:
+    """Diagnostic information for a failed artifact (FR-009).
+
+    Provides the orchestrating agent with enough context to present
+    a meaningful fix/skip/abort prompt to the developer.
+    """
+
+    artifact_type: str
+    error: str
+    error_type: str  # "missing_api_key", "code_execution", "validation", etc.
+    suggested_fix: str
+    artifact_config: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass
 class ArtifactResult:
     """Result of generating a single artifact."""
@@ -68,6 +94,8 @@ class ArtifactResult:
     backend: str = ""
     wiki_page_id: int | None = None
     output_files: list[str] = field(default_factory=list)
+    status: ArtifactStatus = ArtifactStatus.pending
+    failure: ArtifactFailure | None = None
 
 
 @dataclass
@@ -77,6 +105,9 @@ class PipelineResult:
     success: bool
     results: list[ArtifactResult] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    failures: list[ArtifactFailure] = field(default_factory=list)
+    skipped_count: int = 0
+    retried_count: int = 0
 
 
 def load_plan(plan_path: Path) -> dict[str, Any]:
@@ -453,6 +484,69 @@ def format_wiki_content(
     return content
 
 
+def classify_error(
+    error: Exception,
+    artifact: dict[str, Any],
+) -> ArtifactFailure:
+    """Classify an artifact generation error and produce diagnostic info (FR-009).
+
+    Returns an ArtifactFailure with error_type, human-readable error message,
+    and a suggested fix the orchestrating agent can present to the developer.
+    """
+    art_type = artifact.get("type", "unknown")
+    model = artifact.get("model", "claude")
+    error_str = str(error)
+
+    # Classify by error content
+    if "api key" in error_str.lower() or "authentication" in error_str.lower():
+        return ArtifactFailure(
+            artifact_type=art_type,
+            error=error_str,
+            error_type="missing_api_key",
+            suggested_fix=f"Provide the API key for '{model}', or use a different model (e.g., claude)",
+            artifact_config=dict(artifact),
+        )
+    if isinstance(error, RuntimeError) and "execution failed" in error_str.lower():
+        return ArtifactFailure(
+            artifact_type=art_type,
+            error=error_str,
+            error_type="code_execution",
+            suggested_fix="Review the generated reportlab code or adjust theme.yaml slide dimensions",
+            artifact_config=dict(artifact),
+        )
+    if "wiki_path" in error_str.lower() or "convention" in error_str.lower():
+        return ArtifactFailure(
+            artifact_type=art_type,
+            error=error_str,
+            error_type="validation",
+            suggested_fix="Fix the wiki_path in docs/plan.yaml to match the convention template",
+            artifact_config=dict(artifact),
+        )
+
+    # Generic fallback
+    return ArtifactFailure(
+        artifact_type=art_type,
+        error=error_str,
+        error_type="unknown",
+        suggested_fix="Investigate the error and retry, or skip this artifact",
+        artifact_config=dict(artifact),
+    )
+
+
+def apply_artifact_override(
+    artifact: dict[str, Any],
+    overrides: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply developer-provided overrides to an artifact config for retry (FR-009).
+
+    Common overrides: model, depth, source_signals. Returns a new dict
+    without modifying the original.
+    """
+    updated = dict(artifact)
+    updated.update(overrides)
+    return updated
+
+
 def run_pipeline(
     plan_path: Path,
     project_root: Path,
@@ -515,7 +609,7 @@ def run_pipeline(
     # Get current SHA for tracking
     current_sha = get_current_sha(project_root)
 
-    # Execute artifacts level by level
+    # Execute artifacts level by level (FR-009: interactive failure recovery)
     pipeline_result = PipelineResult(success=True)
 
     for level_idx, level in enumerate(levels):
@@ -527,21 +621,48 @@ def run_pipeline(
 
             # Validate wiki path against convention (FR-008)
             if wiki_path and convention and not validate_wiki_path(wiki_path, convention, project_name):
+                failure = ArtifactFailure(
+                    artifact_type=art_type,
+                    error=f"Wiki path '{wiki_path}' does not match convention template",
+                    error_type="validation",
+                    suggested_fix="Fix the wiki_path in docs/plan.yaml to match the convention template",
+                    artifact_config=dict(artifact),
+                )
                 result = ArtifactResult(
                     artifact_type=art_type,
                     success=False,
-                    error=f"Wiki path '{wiki_path}' does not match convention template",
+                    error=failure.error,
+                    status=ArtifactStatus.failed,
+                    failure=failure,
                 )
                 pipeline_result.results.append(result)
+                pipeline_result.failures.append(failure)
                 pipeline_result.success = False
-                return pipeline_result  # Stop on convention violation
+                logger.warning("Artifact failed validation", type=art_type, error=failure.error)
+                # Continue to next artifact instead of stopping (FR-009)
+                continue
 
             # Resolve LLM routing (FR-005)
             model = resolve_model(artifact)
             backend = resolve_backend(model)
 
             # Build the generation prompt
-            prompt = build_generation_prompt(artifact, theme, project_root)
+            try:
+                prompt = build_generation_prompt(artifact, theme, project_root)
+            except Exception as exc:
+                failure = classify_error(exc, artifact)
+                result = ArtifactResult(
+                    artifact_type=art_type,
+                    success=False,
+                    error=str(exc),
+                    status=ArtifactStatus.failed,
+                    failure=failure,
+                )
+                pipeline_result.results.append(result)
+                pipeline_result.failures.append(failure)
+                pipeline_result.success = False
+                logger.warning("Artifact prompt generation failed", type=art_type, error=str(exc))
+                continue
 
             # Store the prompt for the orchestrating agent to execute
             result = ArtifactResult(
@@ -550,6 +671,7 @@ def run_pipeline(
                 content=prompt,
                 model=model,
                 backend=backend,
+                status=ArtifactStatus.success,
             )
 
             # Handle slides pipeline specially
@@ -558,7 +680,7 @@ def run_pipeline(
 
             pipeline_result.results.append(result)
 
-            # Update plan.yaml with SHA (FR-010)
+            # Update plan.yaml with SHA only for successful artifacts (FR-010)
             if current_sha:
                 update_plan_sha(plan_path, art_type, current_sha)
 
